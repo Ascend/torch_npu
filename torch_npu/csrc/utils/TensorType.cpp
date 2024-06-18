@@ -13,8 +13,9 @@ using namespace torch::autograd;
 std::vector<std::pair<Backend, ScalarType>> all_declared_types_npu() {
   std::vector<std::pair<Backend, ScalarType>> ret;
   // can't easily iterate over enum classes, does not support BFloat16 now
+  // 既然不支持BFloat16，为啥下面列表还有它
   std::vector<Backend> backends = { c10::Backend::PrivateUse1 };
-  std::vector<ScalarType> scalar_types = {
+  std::vector<ScalarType> scalar_types = { // 应该三方设备可配
     ScalarType::Byte, ScalarType::Char, ScalarType::Double, ScalarType::Float,
     ScalarType::Int, ScalarType::Long, ScalarType::Short, ScalarType::Half,
     ScalarType::Bool, ScalarType::BFloat16
@@ -29,6 +30,8 @@ std::vector<std::pair<Backend, ScalarType>> all_declared_types_npu() {
   return ret;
 }
 
+// python_tensor.cpp有个一样的struct，只是is_cuda被替换成了is_npu
+// 这是tensor的各(backend, scalar_type)对的元数据信息
 struct PyTensorType {
   PyTypeObject py_type;
   THPDtype* dtype;
@@ -36,7 +39,7 @@ struct PyTensorType {
   bool is_npu;
   char name[64];
   int backend;
-  int scalar_type;
+  int scalar_type; // int8_t，float之类的类型，enum。pytorch中用宏二次展开的那部分
 
   Backend get_backend() const {
     return static_cast<Backend>(backend);
@@ -129,7 +132,7 @@ using getter = PyObject* (*)(PyObject *, void *);
 static struct PyGetSetDef metaclass_properties[] = {
     {"dtype",        (getter)Tensor_dtype, nullptr, nullptr, nullptr},
     {"layout",       (getter)Tensor_layout, nullptr, nullptr, nullptr},
-    {"is_npu",      (getter)Tensor_is_npu, nullptr, nullptr, nullptr},
+    {"is_npu",      (getter)Tensor_is_npu, nullptr, nullptr, nullptr}, // 名字为"is_" + c10::get_privateuse1_backend()
     {"is_sparse",    (getter)Tensor_is_sparse, nullptr, nullptr, nullptr},
     {nullptr}
 };
@@ -161,11 +164,13 @@ static void py_initialize_tensor_type(PyTypeObject& type, const char* name, PyOb
   // we need to initialize as many types as there are VariableType instances.
   // We copy the basic object fields from a prototype definition and initialize
   // the remaining fields below.
+  // 每个类都有自己的PyTypeObject，如torch.npu.FloatTensor和torch.npu.LongTensor有各自的PyTypeObject，
+  // 把它们的共同部分放在tensor_type_prototype中，然后通过memcpy复制到type中。
   memcpy(&type, &tensor_type_prototype, sizeof(PyTypeObject));
   // Subclassing from torch.<ScalarType>Tensor isn't supported.
   // (Py_TPFLAGS_BASETYPE omitted). Subclassing torch.Tensor still allowed.
   type.tp_flags = Py_TPFLAGS_DEFAULT;
-  type.tp_name = name;
+  type.tp_name = name; // torch.npu.FloatTensor
   type.tp_new = Tensor_new;
   if (PyType_Ready(&type) < 0) {
     throw python_error();
@@ -194,6 +199,7 @@ static std::string get_module(Backend backend) {
 
 static std::string get_name(Backend backend, ScalarType scalarType) {
   std::ostringstream ss;
+  // torch.npu + . + Float + Tensor
   ss << get_module(backend) << "." << toString(scalarType) << "Tensor";
   return ss.str();
 }
@@ -202,8 +208,8 @@ static void set_type(PyTensorType& type_obj, Backend backend, ScalarType scalarT
   // This field is lazily initialized from backend and scalar_type
   type_obj.backend = static_cast<int>(backend);
   type_obj.scalar_type = static_cast<int>(scalarType);
-  type_obj.layout = torch::getTHPLayout(c10::layout_from_backend(backend));
-  type_obj.dtype = torch::getTHPDtype(scalarType);
+  type_obj.layout = torch::getTHPLayout(c10::layout_from_backend(backend)); // Layout::Strided，转换成pyobject对应的layout
+  type_obj.dtype = torch::getTHPDtype(scalarType); // ScalarType转换成pyobject对应的dtype
   type_obj.is_npu = (backend == c10::Backend::PrivateUse1);
 }
 
@@ -254,33 +260,41 @@ static void initialize_npu_aten_types(std::vector<PyTensorType>& tensor_types) {
     Backend backend = declared_types[i].first;
     ScalarType scalar_type = declared_types[i].second;
     set_type(tensor_type, backend, scalar_type);
-    set_name(tensor_type, get_name(backend, scalar_type));
+    set_name(tensor_type, get_name(backend, scalar_type)); // 名字为torch.npu.FloatTensor
   }
 }
 
 void _initialize_python_bindings() {
   // Initialize the at::Type* pointers, name, and properties of the PyTensorType
   // vector. After this call, the vector must not be resized.
+// 初始化tensor_types数组，除了PyTypeObject py_type没有初始化外，其它都初始化了。基本抄的
   initialize_npu_aten_types(tensor_types);
 
   // Initialize the Python metaclass for the torch.FloatTensor, etc. types.
   // The metaclass handles __instancecheck__ checks and binds the dtype property
   // on the type objects.
+  // 初始化PyTypeObject的信息，如方法（dtype, is_npu）等，从用户侧看到的是：
+  // print(torch.npu.FloatTensor.is_npu) # True
+  // print(torch.npu.FloatTensor.dtype)  # torch.float32
+  // print(torch.npu.FloatTensor.layout) # torch.strided
   py_initialize_metaclass(metaclass);
 
   // Get the tp_dict of the Variable class. We copy function definitions
   // onto each Tensor type object so that they can be accessed via e.g.
   // `torch.npu.FloatTensor.add`.
+  // 获取torch的tp_dict，包含方法定义，用于复制到各个tensor_type中，这样就可以执行torch.npu.FloatTensor.add等操作了
   auto tensor_dict = get_tensor_dict();
 
   // Initialize each Python type object torch.npu.FloatTensor, torch.npu.DoubleTensor, etc.
   for (auto& tensor_type : tensor_types) {
+    // 初始化PyTypeObject
     py_initialize_tensor_type(tensor_type.py_type, tensor_type.name, tensor_dict.get());
   }
 
   // Add the type objects to their corresponding modules. e.g. torch.npu.FloatTensor
   // is added to the `torch_npu` module as `FloatTensor`. Also add all the type
   // objects to the set torch_npu._tensor_classes.
+  // FloatTensor类绑定到torch.npu模块中
   py_bind_tensor_types(tensor_types);
 }
 
@@ -292,16 +306,22 @@ static void py_bind_tensor_types(const std::vector<PyTensorType>& tensor_types) 
     if (!tensor_classes) throw python_error();
 
     for (auto& tensor_type : tensor_types) {
-        auto name = std::string(tensor_type.name);
+        auto name = std::string(tensor_type.name); // torch.npu.FloatTensor
         auto idx = name.rfind('.');
-        auto type_name = name.substr(idx + 1);
-        auto module_name = name.substr(0, idx);
+        auto type_name = name.substr(idx + 1); // FloatTensor
+        auto module_name = name.substr(0, idx); // torch.npu
 
         auto module_obj = THPObjectPtr(PyImport_ImportModule(module_name.c_str()));
         if (!module_obj) throw python_error();
 
         PyObject* type_obj = (PyObject*)&tensor_type;
         Py_INCREF(type_obj);
+        // 把FloatTensor添加到torch.npu模块中
+        //
+        // 把tensor_type整个放到模块中，这样在tensor_new时就可以如下转换：
+        // tensor_type = *((PyTensorType*)type)
+        // 这里加的type_obj应该是PyTypeObject，但PyTensorType第一个字段是PyTypeObject，
+        // 估计可以直接转成PyTypeObject
         if (PyModule_AddObject(module_obj.get(), type_name.c_str(), type_obj) < 0) {
             throw python_error();
         }
