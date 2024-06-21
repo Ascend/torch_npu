@@ -58,7 +58,19 @@ torch.utils.generate_methods_for_privateuse1_backend(
 # Apply monkey-patches.
 _except_handler.patch_excepthook()
 # this must be placed at the end
-torch_npu._C._initExtension()
+supported_dtypes = [
+    torch.uint8,
+    torch.int8,
+    torch.float64,
+    torch.float32,
+    torch.int32,
+    torch.int64,
+    torch.int16,
+    torch.float16,
+    torch.bool,
+    torch.bfloat16,
+]
+torch_npu._C.generate_tensor_types(supported_dtypes)
 
 
 # NPU exit, need to synchronize devices
