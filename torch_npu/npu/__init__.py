@@ -174,7 +174,7 @@ def _lazy_init():
                     f"NPU call failed lazily at initialization with error: {str(e)}\n\n"
                     f"NPU call was originally invoked at:\n\n{orig_traceback}"
                 )
-                raise DeferredNpuCallError(msg + pta_error(ErrCode.INTERNAL)) from e
+                raise _DeferredNpuCallError(msg + pta_error(ErrCode.INTERNAL)) from e
 
     global _initialized, _original_pid, _queued_calls
     if _initialized or hasattr(_tls, "is_initializing"):

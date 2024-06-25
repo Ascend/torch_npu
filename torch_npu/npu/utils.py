@@ -43,9 +43,9 @@ def can_device_access_peer(device_id, peer_device_id):
     device_id = _get_device_index(device_id, optional=True)
     peer_device_id = _get_device_index(peer_device_id, optional=True)
     if device_id < 0 or device_id >= device_count():
-        raise AssertionError("Invalid devide id" + pta_error(ErrCode.VALUE))
+        raise AssertionError("Invalid device id" + pta_error(ErrCode.VALUE))
     if peer_device_id < 0 or peer_device_id >= device_count():
-        raise AssertionError("Invalid peer devide id" + pta_error(ErrCode.VALUE))
+        raise AssertionError("Invalid peer device id" + pta_error(ErrCode.VALUE))
     return torch_npu._C._npu_canDeviceAccessPeer(device_id, peer_device_id)
 
 
@@ -61,11 +61,7 @@ def current_device():
 
 
 def get_device_name(device_name=None):
-    device_id = _get_device_index(device_name, optional=True)
-    if device_id < 0 or device_id >= device_count():
-        raise AssertionError("Invalid device id" + pta_error(ErrCode.VALUE))
-    torch_npu.npu._lazy_init()
-    device_prop = torch_npu._C._npu_getDeviceProperties(device_id)
+    device_prop = get_device_properties(device_name=device_name)
     return device_prop.name
 
 
@@ -205,13 +201,13 @@ def stream(stream):
         with device(stream.device):
             dst_prev_stream = current_stream()
 
-    torch.npu.set_stream(stream)
+    set_stream(stream)
     try:
         yield
     finally:
         if src_prev_stream.device != stream.device:
-            torch.npu.set_stream(dst_prev_stream)
-        torch.npu.set_stream(src_prev_stream)
+            set_stream(dst_prev_stream)
+        set_stream(src_prev_stream)
 
 
 def set_stream(stream):
