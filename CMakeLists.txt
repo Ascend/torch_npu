@@ -222,14 +222,37 @@ install(TARGETS ${PLUGIN_NAME} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 if (DEFINED BUILD_GTEST)
   enable_testing()
+  find_package(PythonLibs REQUIRED)
   SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/gtest)
+
+  target_link_libraries(${PLUGIN_NAME} PUBLIC ${PYTHON_LIBRARIES})
+  target_link_libraries(${PLUGIN_NAME} PUBLIC ${TORCHNPU_THIRD_PARTY_ROOT}/acl/libs/libacl.so)
+  target_link_libraries(${PLUGIN_NAME} PUBLIC /usr/local/Ascend/ascend-toolkit/8.0/acllib/lib64/libascendcl.so)
+
   add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/googletest)
-  include_directories(${PROJECT_SOURCE_DIR}/third_party/googletest/googletest/include)
+  add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/acl)
 
-  set(TORCH_API_TEST_SOURCES)
-  add_subdirectory(${PROJECT_SOURCE_DIR}/test/cpp/api)
-  add_executable(test_api ${TORCH_API_TEST_SOURCES})
+  add_subdirectory(${PROJECT_SOURCE_DIR}/test/cpp/aten)
 
-  target_link_libraries(test_api PUBLIC torch_npu)
-  target_link_libraries(test_api PUBLIC gtest_main gtest)
+  list(APPEND TORCH_NPU_TEST_SRCS ${ATEN_TEST_SRCS})
+
+  message(STATUS "NPU test sources: ")
+  foreach(tmp ${TORCH_NPU_TEST_SRCS})
+    message(STATUS "  " ${tmp})
+  endforeach()
+
+  foreach(test_src ${TORCH_NPU_TEST_SRCS})
+    get_filename_component(test_name ${test_src} NAME_WE)
+    add_executable(${test_name} "${test_src}")
+    if(NOT MSVC)
+      target_link_libraries(${test_name} stdc++)
+    endif()
+    target_include_directories(${test_name} PRIVATE $<INSTALL_INTERFACE:include>)
+    target_include_directories(${test_name} PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>)
+    target_include_directories(${test_name} PRIVATE ${ATEN_SRCS})
+    target_include_directories(${test_name} PRIVATE ${TORCHNPU_THIRD_PARTY_ROOT}/googletest/googletest/include)
+    target_link_libraries(${test_name} ${PLUGIN_NAME} gtest_main)
+    add_test(NAME ${test_name} COMMAND $<TARGET_FILE:${test_name}>)
+  endforeach()
+
 endif()
