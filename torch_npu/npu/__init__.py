@@ -248,7 +248,7 @@ def _get_generator(device: torch.device) -> torch._C.Generator:
 
 
 def _set_rng_state_offset(
-    offset: int, device: Union[int, str, torch.device] = "npu"
+        offset: int, device: Union[int, str, torch.device] = "npu"
 ) -> None:
     r"""Sets the random number generator state offset of the specified NPU.
 
