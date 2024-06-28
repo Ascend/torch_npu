@@ -184,6 +184,7 @@ set(PROF_SRCS)
 set(UTILS_SRCS)
 set(SAN_SRCS)
 
+add_subdirectory(${PROJECT_SOURCE_DIR}/npu/acl/libs)
 add_subdirectory(${PROJECT_SOURCE_DIR}/aten)
 add_subdirectory(${PROJECT_SOURCE_DIR}/npu/core)
 add_subdirectory(${PROJECT_SOURCE_DIR}/npu/framework)

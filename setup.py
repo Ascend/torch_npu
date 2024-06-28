@@ -190,16 +190,6 @@ def generate_bindings_code(base_dir):
         sys.exit(1)
 
 
-def build_stub(base_dir):
-    build_stub_cmd = [
-        "sh",
-        os.path.join(base_dir, "npu/acl/libs/build_stub.sh"),
-    ]
-    if subprocess.call(build_stub_cmd) != 0:
-        print("Failed to build stub: {}".format(build_stub_cmd), file=sys.stderr)
-        sys.exit(1)
-
-
 def CppExtension(name, sources, *args, **kwargs):
     r"""
     Creates a :class:`setuptools.Extension` for C++.
@@ -329,9 +319,7 @@ def get_src_py_and_dst():
 
 def build_deps():
     check_submodules()
-
     generate_bindings_code(BASE_DIR)
-    build_stub(BASE_DIR)
 
     cmake = get_cmake_command()
 
@@ -413,12 +401,12 @@ def configure_extension_build():
     C = CppExtension(
         "torch_npu._C",
         sources=["torch_npu/csrc/stub.c"],
-        libraries=["torch_npu", "hccl"],
+        libraries=["torch_npu"],
         include_dirs=include_directories,
         extra_compile_args=extra_compile_args
         + ["-fstack-protector-all"]
         + ['-D__FILENAME__="stub.c"'],
-        library_dirs=["lib", os.path.join(BASE_DIR, "npu/acl/libs"), os.path.join(BASE_DIR, "torch_npu/lib")],
+        library_dirs=["lib", os.path.join(BASE_DIR, "torch_npu/lib")],
         extra_link_args=extra_link_args + ["-Wl,-rpath,$ORIGIN/lib"],
         define_macros=[("_GLIBCXX_USE_CXX11_ABI", "0"), ("GLIBCXX_USE_CXX11_ABI", "0")],
     )
