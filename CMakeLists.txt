@@ -226,11 +226,7 @@ if (DEFINED BUILD_GTEST)
   SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/gtest)
 
   target_link_libraries(${PLUGIN_NAME} PUBLIC ${PYTHON_LIBRARIES})
-  target_link_libraries(${PLUGIN_NAME} PUBLIC ${TORCHNPU_THIRD_PARTY_ROOT}/acl/libs/libacl.so)
-  target_link_libraries(${PLUGIN_NAME} PUBLIC /usr/local/Ascend/ascend-toolkit/8.0/acllib/lib64/libascendcl.so)
-
   add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/googletest)
-  add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/acl)
 
   add_subdirectory(${PROJECT_SOURCE_DIR}/test/cpp/aten)
 
