@@ -8,18 +8,17 @@
 $ops_headers
 
 using namespace at;
-using torch::autograd::CreationMeta;
 using torch::autograd::as_view;
+using torch::autograd::CreationMeta;
 using torch::autograd::increment_version;
 
 namespace at_npu {
 
 namespace ADInplaceOrView {
-
 namespace {
 ${inplace_or_view_method_definitions}
-}  // namespace
-}  // namespace ADInplaceOrView
+} // namespace
+} // namespace ADInplaceOrView
 
 namespace {
 
@@ -27,5 +26,5 @@ TORCH_LIBRARY_IMPL(npu, ADInplaceOrView, m) {
   ${inplace_or_view_wrapper_registrations};
 }
 
-}  // namespace
+} // namespace
 } // namespace at_npu

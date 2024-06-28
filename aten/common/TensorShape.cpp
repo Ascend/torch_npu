@@ -3,21 +3,21 @@
 #include <ATen/InferSize.h>
 #include <ATen/NamedTensorUtils.h>
 #include <ATen/NativeFunctions.h>
-#include <torch/library.h>
-#include <ATen/native/SparseTensorUtils.h>
 #include <ATen/WrapDimUtils.h>
 #include <ATen/native/Copy.h>
 #include <ATen/native/Resize.h>
+#include <ATen/native/SparseTensorUtils.h>
 #include <ATen/quantized/QTensorImpl.h>
-#include "npu/core/npu/NPUException.h"
 #include <c10/util/Optional.h>
+#include <torch/library.h>
 #include <algorithm>
 #include <vector>
+#include "npu/core/npu/NPUException.h"
 
-#include "npu/framework/InferFormat.h"
-#include "aten/common/FormatCastHelper.h"
 #include "aten/NPUNativeFunctions.h"
+#include "aten/common/FormatCastHelper.h"
 #include "aten/common/ResizeNpu.h"
+#include "npu/framework/InferFormat.h"
 #include "third_party/acl/inc/acl/acl_base.h"
 
 namespace {
@@ -26,21 +26,28 @@ namespace {
 struct InferUnsqueezeGeometryResult {
   at::DimVector sizes;
   at::DimVector strides;
-  InferUnsqueezeGeometryResult(c10::IntArrayRef tensor_sizes, c10::IntArrayRef tensor_strides)
-    : sizes(tensor_sizes.begin(), tensor_sizes.end()), strides(tensor_strides.begin(), tensor_strides.end()) {}
+  InferUnsqueezeGeometryResult(
+      c10::IntArrayRef tensor_sizes,
+      c10::IntArrayRef tensor_strides)
+      : sizes(tensor_sizes.begin(), tensor_sizes.end()),
+        strides(tensor_strides.begin(), tensor_strides.end()) {}
 };
-}
+} // namespace
 
-InferUnsqueezeGeometryResult inferUnsqueezeGeometry(const at::Tensor& tensor, int64_t dim) {
+InferUnsqueezeGeometryResult inferUnsqueezeGeometry(
+    const at::Tensor& tensor,
+    int64_t dim) {
   InferUnsqueezeGeometryResult result(tensor.sizes(), tensor.strides());
-  int64_t new_stride = dim >= tensor.dim() ? 1 : result.sizes[dim] * result.strides[dim];
+  int64_t new_stride =
+      dim >= tensor.dim() ? 1 : result.sizes[dim] * result.strides[dim];
   result.sizes.insert(result.sizes.begin() + dim, 1);
   result.strides.insert(result.strides.begin() + dim, new_stride);
 
   return result;
 }
 
-std::tuple<at::DimVector, at::DimVector> inferSqueezeGeometry(const at::Tensor &tensor) {
+std::tuple<at::DimVector, at::DimVector> inferSqueezeGeometry(
+    const at::Tensor& tensor) {
   at::DimVector sizes;
   at::DimVector strides;
 
@@ -54,7 +61,9 @@ std::tuple<at::DimVector, at::DimVector> inferSqueezeGeometry(const at::Tensor &
   return std::make_tuple(std::move(sizes), std::move(strides));
 }
 
-std::tuple<at::DimVector, at::DimVector> inferSqueezeGeometry(const at::Tensor& tensor, int64_t dim) {
+std::tuple<at::DimVector, at::DimVector> inferSqueezeGeometry(
+    const at::Tensor& tensor,
+    int64_t dim) {
   at::DimVector sizes;
   at::DimVector strides;
 
@@ -99,7 +108,9 @@ at::Tensor alias_with_sizes_and_strides_npu(
   return self_;
 }
 
-at::Tensor NPUNativeFunctions::view(const at::Tensor& self, c10::IntArrayRef size) {
+at::Tensor NPUNativeFunctions::view(
+    const at::Tensor& self,
+    c10::IntArrayRef size) {
   auto inferred_size = at::infer_size(size, self.numel());
   auto stride =
       at::detail::computeStride(self.sizes(), self.strides(), inferred_size);
@@ -107,7 +118,8 @@ at::Tensor NPUNativeFunctions::view(const at::Tensor& self, c10::IntArrayRef siz
       stride.has_value(),
       "view size is "
       "not compatible with input tensor's size and stride (at least one dimension"
-      " spans across two contiguous subspaces). Use .reshape(...) instead.", OPS_ERROR(ErrCode::PARAM));
+      " spans across two contiguous subspaces). Use .reshape(...) instead.",
+      OPS_ERROR(ErrCode::PARAM));
   auto stride_value = *stride;
   auto dst = self;
   return alias_with_sizes_and_strides_npu(dst, inferred_size, stride_value);
@@ -138,7 +150,8 @@ const at::Tensor& NPUNativeFunctions::as_strided__symint(
     c10::SymIntArrayRef stride,
     c10::optional<c10::SymInt> storage_offset_) {
   at::Tensor result = self;
-  if (InferFormat::IsDefiniteTensorWhenMetaDataChanges(result, c10::asIntArrayRefUnchecked(size))) {
+  if (InferFormat::IsDefiniteTensorWhenMetaDataChanges(
+          result, c10::asIntArrayRefUnchecked(size))) {
     result = FormatCastHelper::CovertSelfToBaseFormat(result);
   }
   auto storage_offset = storage_offset_.value_or(result.storage_offset());
@@ -147,9 +160,9 @@ const at::Tensor& NPUNativeFunctions::as_strided__symint(
 }
 
 at::Tensor NPUNativeFunctions::unsqueeze(const at::Tensor& self, int64_t dim) {
-    dim = at::maybe_wrap_dim(dim, self.dim() + 1);
-    auto g = inferUnsqueezeGeometry(self, dim);
-    return self.as_strided(g.sizes, g.strides);
+  dim = at::maybe_wrap_dim(dim, self.dim() + 1);
+  auto g = inferUnsqueezeGeometry(self, dim);
+  return self.as_strided(g.sizes, g.strides);
 }
 
 at::Tensor NPUNativeFunctions::squeeze(const at::Tensor& self) {
@@ -172,7 +185,10 @@ at::Tensor NPUNativeFunctions::squeeze(const at::Tensor& self, int64_t dim) {
   return result;
 }
 
-at::Tensor NPUNativeFunctions::_reshape_alias(const at::Tensor& self, at::IntArrayRef sizes, at::IntArrayRef strides) {
+at::Tensor NPUNativeFunctions::_reshape_alias(
+    const at::Tensor& self,
+    at::IntArrayRef sizes,
+    at::IntArrayRef strides) {
   return self.view(sizes);
 }
 

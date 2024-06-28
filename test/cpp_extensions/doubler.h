@@ -12,6 +12,6 @@ struct Doubler {
     return tensor_;
   }
 
-private:
+ private:
   torch::Tensor tensor_;
 };

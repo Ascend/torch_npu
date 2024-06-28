@@ -1,11 +1,11 @@
-#include "npu/framework/FormatHelper.h"
-#include "npu/framework/utils/OpAdapter.h"
-#include "npu/framework/utils/NpuStorageOffsetGuard.h"
-#include "aten/common/FormatCastHelper.h"
+#include "aten/CustomFunctions.h"
 #include "aten/NPUNativeFunctions.h"
+#include "aten/common/FormatCastHelper.h"
 #include "npu/core/NPUBridge.h"
 #include "npu/core/NPUStorageImpl.h"
-#include "aten/CustomFunctions.h"
+#include "npu/framework/FormatHelper.h"
+#include "npu/framework/utils/NpuStorageOffsetGuard.h"
+#include "npu/framework/utils/OpAdapter.h"
 
 namespace at_npu {
 namespace native {
@@ -17,25 +17,25 @@ at::Tensor format_cast_impl_out_npu(at::Tensor& dst, const at::Tensor& src) {
   string dstFormat = FormatHelper::GetFormatName(dst);
 
   if (!FormatCastHelper::IsSameGroupType(src, dst)) {
-    bool res = FormatCastHelper::format_cast_between_group(dst, src, format_cast_impl_out_npu);
+    bool res = FormatCastHelper::format_cast_between_group(
+        dst, src, format_cast_impl_out_npu);
     if (!res) {
       AT_ERROR("unsupport cast from ", srcFormat, " to ", dstFormat);
     }
     return dst;
   }
 
-  NpuStorageOffsetGuard guard_input(const_cast<at::Tensor &>(src));
+  NpuStorageOffsetGuard guard_input(const_cast<at::Tensor&>(src));
   NpuStorageOffsetGuard guard_output(dst);
   OpCommand cmd;
-  cmd.Name("Identity")
-     .InputWithoutContiguous(src)
-     .Output(dst)
-     .Run();
+  cmd.Name("Identity").InputWithoutContiguous(src).Output(dst).Run();
   return dst;
 }
 
 // convert src from src_format to dst_format, write the result into dst
-at::Tensor& NPUNativeFunctions::npu_format_cast_(at::Tensor& dst, const at::Tensor& src) {
+at::Tensor& NPUNativeFunctions::npu_format_cast_(
+    at::Tensor& dst,
+    const at::Tensor& src) {
   torch_npu::utils::torch_check_npu(dst);
   torch_npu::utils::torch_check_npu(src);
   auto src_desc = torch_npu::NPUBridge::GetNpuStorageImpl(src)->npu_desc_;
@@ -52,9 +52,7 @@ at::Tensor& NPUNativeFunctions::npu_format_cast_(at::Tensor& dst, const at::Tens
 }
 
 // conver self to acl_format, write the result into new result tensor
-at::Tensor npu_format_cast_impl(
-    const at::Tensor& src,
-    int64_t acl_format) {
+at::Tensor npu_format_cast_impl(const at::Tensor& src, int64_t acl_format) {
   auto src_desc = torch_npu::NPUBridge::GetNpuStorageImpl(src)->npu_desc_;
   if (src_desc.npu_format_ == acl_format) {
     ASCEND_LOGD("no need to do format cast");
@@ -62,7 +60,8 @@ at::Tensor npu_format_cast_impl(
   }
   if (FormatHelper::IsBaseFormatType(src) &&
       FormatHelper::IsBaseFormatType(static_cast<aclFormat>(acl_format))) {
-    FormatCastHelper::format_cast_as_base_format(src, static_cast<aclFormat>(acl_format));
+    FormatCastHelper::format_cast_as_base_format(
+        src, static_cast<aclFormat>(acl_format));
     return src;
   }
 
@@ -99,7 +98,8 @@ at::Tensor& NPUNativeFunctions::npu_format_cast_(
   }
   if (FormatHelper::IsBaseFormatType(src) &&
       FormatHelper::IsBaseFormatType(static_cast<aclFormat>(acl_format))) {
-    FormatCastHelper::format_cast_as_base_format(src, static_cast<aclFormat>(acl_format));
+    FormatCastHelper::format_cast_as_base_format(
+        src, static_cast<aclFormat>(acl_format));
     return src;
   }
 
@@ -122,12 +122,14 @@ int64_t NPUNativeFunctions::get_npu_format(const at::Tensor& src) {
   return src_desc.npu_format_;
 }
 
-at::Tensor NPUNativeFunctions::_npu_format_cast(const at::Tensor& self,
+at::Tensor NPUNativeFunctions::_npu_format_cast(
+    const at::Tensor& self,
     int64_t acl_format) {
   return npu_format_cast_impl(self, acl_format);
 }
 
-at::Tensor NPUNativeFunctions::npu_format_cast(const at::Tensor& self,
+at::Tensor NPUNativeFunctions::npu_format_cast(
+    const at::Tensor& self,
     int64_t acl_format) {
   torch_npu::utils::torch_check_npu(self);
   if (NPUNativeFunctions::get_npu_format(self) == acl_format) {

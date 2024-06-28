@@ -17,7 +17,8 @@ void OverflowUtil::EnableOverflowNpu() {
 }
 
 bool OverflowUtil::CheckOverflowNpu() {
-  auto options = at::TensorOptions(c10::DeviceType::PrivateUse1).dtype(at::kFloat);
+  auto options =
+      at::TensorOptions(c10::DeviceType::PrivateUse1).dtype(at::kFloat);
   at::Tensor tmp = at::empty({8}, options);
   auto floatStatus = op_plugin::npu_alloc_float_status(tmp);
   auto result = op_plugin::npu_get_float_status(floatStatus);
@@ -28,12 +29,13 @@ bool OverflowUtil::CheckOverflowNpu() {
 }
 
 void OverflowUtil::ClearOverflowNpu() {
-  auto options = at::TensorOptions(c10::DeviceType::PrivateUse1).dtype(at::kFloat);
+  auto options =
+      at::TensorOptions(c10::DeviceType::PrivateUse1).dtype(at::kFloat);
   at::Tensor tmp = at::empty({8}, options);
   auto floatStatus = op_plugin::npu_alloc_float_status(tmp);
   auto result = op_plugin::npu_clear_float_status(floatStatus);
   return;
 }
 
-}
-}
+} // namespace utils
+} // namespace torch_npu

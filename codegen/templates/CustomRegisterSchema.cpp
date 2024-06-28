@@ -1,18 +1,18 @@
-#include <c10/core/TensorImpl.h>
-#include <c10/core/Allocator.h>
 #include <ATen/DeviceGuard.h>
-#include <ATen/NativeFunctions.h>
+#include <ATen/Dispatch.h>
+#include <ATen/Functions.h>
 #include <ATen/MetaFunctions.h>
 #include <ATen/NamedTensorUtils.h>
+#include <ATen/NativeFunctions.h>
+#include <ATen/Tensor.h>
 #include <ATen/Utils.h>
 #include <ATen/WrapDimUtils.h>
-#include <ATen/Dispatch.h>
-#include <c10/util/Half.h>
-#include <c10/core/UndefinedTensorImpl.h>
-#include <c10/util/Optional.h>
-#include <ATen/Tensor.h>
-#include <ATen/Functions.h>
 #include <ATen/native/Resize.h>
+#include <c10/core/Allocator.h>
+#include <c10/core/TensorImpl.h>
+#include <c10/core/UndefinedTensorImpl.h>
+#include <c10/util/Half.h>
+#include <c10/util/Optional.h>
 
 #include <cstddef>
 #include <functional>
@@ -20,9 +20,9 @@
 #include <utility>
 
 #include <ATen/Config.h>
-#include <torch/library.h>
 #include <torch/csrc/autograd/function.h>
 #include <torch/csrc/jit/frontend/tracer.h>
+#include <torch/library.h>
 
 #include "aten/NPUNativeFunctions.h"
 #include "aten/VariableType.h"
@@ -38,7 +38,6 @@ ${custom_op_definitions}
 namespace {
 
 TORCH_LIBRARY(npu, m) {
-
   ${custom_schema_registrations}
 }
 
@@ -47,7 +46,6 @@ TORCH_LIBRARY(npu, m) {
 namespace {
 
 TORCH_LIBRARY_IMPL(npu, PrivateUse1, m) {
-
   ${custom_impl_registrations}
 }
 

@@ -10,11 +10,10 @@
 #include <c10/core/Device.h>
 #include <c10/macros/Macros.h>
 
-#include "npu/core/npu/NPUMacros.h"
-#include "npu/core/npu/NPUException.h"
-#include "npu/core/npu/npu_log.h"
-#include "npu/core/npu/NPUMacros.h"
 #include <third_party/acl/inc/acl/acl.h>
+#include "npu/core/npu/NPUException.h"
+#include "npu/core/npu/NPUMacros.h"
+#include "npu/core/npu/npu_log.h"
 
 namespace c10_npu {
 
@@ -33,7 +32,7 @@ C10_NPU_API c10::DeviceIndex device_count_ensure_non_zero();
  * @retval ACL_ERROR_NONE The function is successfully executed.
  * @retval OtherValues Failure
  */
-C10_NPU_API aclError GetDevice(int32_t *device);
+C10_NPU_API aclError GetDevice(int32_t* device);
 
 /**
  * @ingroup torch_npu
@@ -76,36 +75,33 @@ enum class SyncDebugMode { L_DISABLED = 0, L_WARN, L_ERROR };
 // it's used to store npu synchronization state
 // through this global state to determine the synchronization debug mode
 class WarningState {
-public:
-    void set_sync_debug_mode(SyncDebugMode level)
-    {
-        sync_debug_mode = level;
-    }
+ public:
+  void set_sync_debug_mode(SyncDebugMode level) {
+    sync_debug_mode = level;
+  }
 
-    SyncDebugMode get_sync_debug_mode()
-    {
-        return sync_debug_mode;
-    }
+  SyncDebugMode get_sync_debug_mode() {
+    return sync_debug_mode;
+  }
 
-private:
-    SyncDebugMode sync_debug_mode = SyncDebugMode::L_DISABLED;
+ private:
+  SyncDebugMode sync_debug_mode = SyncDebugMode::L_DISABLED;
 };
 
-C10_NPU_API inline WarningState& warning_state()
-{
-    static WarningState warning_state_;
-    return warning_state_;
+C10_NPU_API inline WarningState& warning_state() {
+  static WarningState warning_state_;
+  return warning_state_;
 }
 
 // this function has to be called from callers performing npu synchronizing
 // operations, to raise proper error or warning
-C10_NPU_API inline void warn_or_error_on_sync()
-{
-    if (warning_state().get_sync_debug_mode() == SyncDebugMode::L_ERROR) {
-        TORCH_CHECK(false, "called a synchronizing NPU operation", PTA_ERROR(ErrCode::ACL));
-    } else if (warning_state().get_sync_debug_mode() == SyncDebugMode::L_WARN) {
-        TORCH_NPU_WARN("called a synchronizing NPU operation");
-    }
+C10_NPU_API inline void warn_or_error_on_sync() {
+  if (warning_state().get_sync_debug_mode() == SyncDebugMode::L_ERROR) {
+    TORCH_CHECK(
+        false, "called a synchronizing NPU operation", PTA_ERROR(ErrCode::ACL));
+  } else if (warning_state().get_sync_debug_mode() == SyncDebugMode::L_WARN) {
+    TORCH_NPU_WARN("called a synchronizing NPU operation");
+  }
 }
 
 } // namespace c10_npu

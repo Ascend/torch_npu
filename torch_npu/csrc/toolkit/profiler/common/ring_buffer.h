@@ -1,15 +1,15 @@
 #pragma once
 
 #include <atomic>
-#include <vector>
 #include <deque>
+#include <vector>
 
 namespace torch_npu {
 namespace toolkit {
 namespace profiler {
 template <typename T>
 class RingBuffer {
-public:
+ public:
   RingBuffer()
       : is_inited_(false),
         is_quit_(false),
@@ -63,14 +63,15 @@ public:
       if ((next_write_index & mask_) == (curr_read_index & mask_)) {
         return false;
       }
-    } while (!idle_write_index_.compare_exchange_weak(curr_write_index, next_write_index));
+    } while (!idle_write_index_.compare_exchange_weak(
+        curr_write_index, next_write_index));
     size_t index = curr_write_index & mask_;
     data_queue_[index] = std::move(data);
     write_index_++;
     return true;
   }
 
-  bool Pop(T &data) {
+  bool Pop(T& data) {
     if (!is_inited_) {
       return false;
     }
@@ -85,17 +86,16 @@ public:
     return true;
   }
 
-    size_t Size()
-    {
-        size_t curr_read_index = read_index_.load(std::memory_order_relaxed);
-        size_t curr_write_index = write_index_.load(std::memory_order_relaxed);
-        if (curr_read_index > curr_write_index) {
-            return capacity_ - (curr_read_index & mask_) + (curr_write_index & mask_);
-        }
-        return curr_write_index - curr_read_index;
+  size_t Size() {
+    size_t curr_read_index = read_index_.load(std::memory_order_relaxed);
+    size_t curr_write_index = write_index_.load(std::memory_order_relaxed);
+    if (curr_read_index > curr_write_index) {
+      return capacity_ - (curr_read_index & mask_) + (curr_write_index & mask_);
     }
+    return curr_write_index - curr_read_index;
+  }
 
-private:
+ private:
   bool is_inited_;
   volatile bool is_quit_;
   std::atomic<size_t> read_index_;
@@ -105,6 +105,6 @@ private:
   size_t mask_;
   std::vector<T> data_queue_;
 };
-} // profiler
-} // toolkit
-} // torch_npu
+} // namespace profiler
+} // namespace toolkit
+} // namespace torch_npu

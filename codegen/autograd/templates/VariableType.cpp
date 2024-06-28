@@ -1,16 +1,15 @@
 #include <torch/csrc/autograd/VariableTypeUtils.h>
 
-#include <c10/core/impl/TorchDispatchModeTLS.h>
-#include <ATen/core/TorchDispatchUtils.h>
-#include <ATen/SparseCsrTensorUtils.h>
 #include <ATen/RedispatchFunctions.h>
+#include <ATen/SparseCsrTensorUtils.h>
+#include <ATen/core/TorchDispatchUtils.h>
+#include <c10/core/impl/TorchDispatchModeTLS.h>
 #include <torch/library.h>
 
+#include "aten/CustomRedispatch.h"
 #include "aten/NPUNativeFunctions.h"
 #include "aten/VariableType.h"
-#include "aten/CustomRedispatch.h"
 #include "npu/framework/autograd/FunctionsManual.h"
-
 
 // ${generated_comment}
 
@@ -38,17 +37,18 @@ using namespace at;
 using namespace at_npu::autograd::generated;
 using namespace at_npu::autograd::generated::details;
 
-namespace at_npu { namespace autograd {
+namespace at_npu {
+namespace autograd {
 
 namespace VariableType {
 namespace {
-  C10_UNUSED void reset_grad_accumulator(Variable & self) {
-    AutogradMeta* meta = torch::autograd::impl::get_autograd_meta(self);
-    if (meta != nullptr) {
-      meta->grad_accumulator_.reset();
-    }
+C10_UNUSED void reset_grad_accumulator(Variable& self) {
+  AutogradMeta* meta = torch::autograd::impl::get_autograd_meta(self);
+  if (meta != nullptr) {
+    meta->grad_accumulator_.reset();
   }
 }
+} // namespace
 
 ${type_derived_method_definitions}
 
@@ -57,13 +57,14 @@ ${type_derived_method_definitions}
 namespace {
 
 TORCH_LIBRARY_IMPL(aten, AutogradPrivateUse1, m) {
-    ${wrapper_registrations_aten}
+  ${wrapper_registrations_aten}
 }
 
 TORCH_LIBRARY_IMPL(npu, AutogradPrivateUse1, m) {
-    ${wrapper_registrations_npu}
+  ${wrapper_registrations_npu}
 }
 
-}
+} // namespace
 
-}} // namespace at_npu::autograd
+} // namespace autograd
+} // namespace at_npu

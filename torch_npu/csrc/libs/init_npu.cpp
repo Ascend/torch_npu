@@ -1,18 +1,16 @@
 #include "torch_npu/csrc/libs/init_npu.h"
-#include "npu/core/npu/NPUException.h"
-#include "npu/core/npu/sys_ctrl/npu_sys_ctrl.h"
-#include "npu/core/npu/NPUStream.h"
-#include "npu/core/npu/NPUGuard.h"
-#include "npu/core/npu/THNPUCachingHostAllocator.h"
 #include "npu/core/npu/NPUCachingAllocator.h"
-
+#include "npu/core/npu/NPUException.h"
+#include "npu/core/npu/NPUGuard.h"
+#include "npu/core/npu/NPUStream.h"
+#include "npu/core/npu/THNPUCachingHostAllocator.h"
+#include "npu/core/npu/sys_ctrl/npu_sys_ctrl.h"
 
 namespace torch_npu {
 
 bool is_npu_device(const at::Device& device) {
   return device.type() == c10::DeviceType::PrivateUse1;
 }
-
 
 void init_npu(const c10::DeviceIndex device_index) {
   c10_npu::NpuSysCtrl::SysStatus status =
@@ -23,18 +21,22 @@ void init_npu(const c10::DeviceIndex device_index) {
   }
 }
 
-
 void init_npu(const std::string& device_str) {
   auto device = at::Device(device_str);
-  TORCH_CHECK(is_npu_device(device), "NPU device init fail, except got NPU device, but got ", device_str,
-              PTA_ERROR(ErrCode::PARAM));
+  TORCH_CHECK(
+      is_npu_device(device),
+      "NPU device init fail, except got NPU device, but got ",
+      device_str,
+      PTA_ERROR(ErrCode::PARAM));
   init_npu(device.index());
 }
 
-
 void init_npu(const at::Device& device) {
-  TORCH_CHECK(is_npu_device(device), "NPU device init fail, except got NPU device, but got ", str(device),
-              PTA_ERROR(ErrCode::PARAM));
+  TORCH_CHECK(
+      is_npu_device(device),
+      "NPU device init fail, except got NPU device, but got ",
+      str(device),
+      PTA_ERROR(ErrCode::PARAM));
   init_npu(device.index());
 }
 
@@ -43,17 +45,26 @@ void finalize_npu() {
     try {
       c10_npu::npuSynchronizeDevice();
     } catch (std::exception& e) {
-      TORCH_CHECK(false, "NPU SynchronizeDevice failed err=:%s", e.what(), PTA_ERROR(ErrCode::ACL));
+      TORCH_CHECK(
+          false,
+          "NPU SynchronizeDevice failed err=:%s",
+          e.what(),
+          PTA_ERROR(ErrCode::ACL));
     }
 
     THNPUCachingHostAllocator_emptyCache();
     try {
       c10_npu::NPUCachingAllocator::emptyCache();
     } catch (std::exception& e) {
-      TORCH_CHECK(false, "NPU CachingAllocator::emptyCache failed err=:%s", e.what(), PTA_ERROR(ErrCode::ACL));
+      TORCH_CHECK(
+          false,
+          "NPU CachingAllocator::emptyCache failed err=:%s",
+          e.what(),
+          PTA_ERROR(ErrCode::ACL));
     }
 
-    c10_npu::NpuSysCtrl::SysStatus status = c10_npu::NpuSysCtrl::GetInstance().Finalize();
+    c10_npu::NpuSysCtrl::SysStatus status =
+        c10_npu::NpuSysCtrl::GetInstance().Finalize();
     if (status != c10_npu::NpuSysCtrl::SysStatus::FINALIZE_SUCC) {
       TORCH_CHECK(false, "NPU sys finalize failed.\n", PTA_ERROR(ErrCode::ACL));
     }
@@ -64,18 +75,17 @@ void finalize_npu() {
 
 } // namespace torch_npu
 
-
 namespace torch {
 namespace npu {
 
 void synchronize(int64_t device_index) {
-  c10_npu::NPUGuard device_guard(at::Device(at::DeviceType::PrivateUse1, device_index));
+  c10_npu::NPUGuard device_guard(
+      at::Device(at::DeviceType::PrivateUse1, device_index));
   c10_npu::npuSynchronizeDevice();
 }
 
 } // namespace npu
 } // namespace torch
-
 
 namespace c10 {
 namespace npu {

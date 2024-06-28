@@ -1,11 +1,11 @@
 #include "torch_npu/csrc/profiler/profiler_mgr.h"
+#include "npu/core/npu/NPUFunctions.h"
+#include "npu/core/npu/NPUStream.h"
+#include "npu/core/npu/npu_log.h"
 #include "npu/framework/interface/AclInterface.h"
 #include "npu/framework/interface/MsProfilerInterface.h"
-#include "npu/core/npu/npu_log.h"
-#include "npu/core/npu/NPUStream.h"
-#include "torch_npu/csrc/toolkit/profiler/common/utils.h"
-#include "npu/core/npu/NPUFunctions.h"
 #include "torch_npu/csrc/profiler/feature_mgr.h"
+#include "torch_npu/csrc/toolkit/profiler/common/utils.h"
 
 namespace torch_npu {
 namespace profiler {
@@ -35,7 +35,7 @@ ProfilerMgr::ProfilerMgr()
       msprof_tx_(false),
       profConfig_(nullptr) {}
 
-void ProfilerMgr::Init(const std::string &path, bool npu_trace) {
+void ProfilerMgr::Init(const std::string& path, bool npu_trace) {
   if (npu_trace == true) {
     at_npu::native::AclProfilingInit(path.c_str(), path.size());
     npu_trace_.store(true);
@@ -44,8 +44,13 @@ void ProfilerMgr::Init(const std::string &path, bool npu_trace) {
   path_ = path;
 }
 
-void ProfilerMgr::EnableMsProfiler(uint32_t *deviceIdList, uint32_t deviceNum, aclprofAicoreMetrics aicMetrics, uint64_t dataTypeConfig) {
-  profConfig_ = at_npu::native::AclProfilingCreateConfig(deviceIdList, deviceNum, aicMetrics, nullptr, dataTypeConfig);
+void ProfilerMgr::EnableMsProfiler(
+    uint32_t* deviceIdList,
+    uint32_t deviceNum,
+    aclprofAicoreMetrics aicMetrics,
+    uint64_t dataTypeConfig) {
+  profConfig_ = at_npu::native::AclProfilingCreateConfig(
+      deviceIdList, deviceNum, aicMetrics, nullptr, dataTypeConfig);
   if (profConfig_ == nullptr) {
     ASCEND_LOGE("Create Prof Config failed.");
     return;
@@ -57,34 +62,37 @@ void ProfilerMgr::EnableMsProfiler(uint32_t *deviceIdList, uint32_t deviceNum, a
   }
 }
 
-void ProfilerMgr::Start(const NpuTraceConfig &npu_config, bool cpu_trace) {
+void ProfilerMgr::Start(const NpuTraceConfig& npu_config, bool cpu_trace) {
   c10_npu::npuSynchronizeDevice();
   if (npu_trace_.load() == true) {
     aclprofAicoreMetrics aic_metrics = ACL_AICORE_NONE;
     auto level_iter = trace_level_map_.find(npu_config.trace_level);
-    uint64_t datatype_config = (level_iter == trace_level_map_.end()) ?
-      Level0 : trace_level_map_[npu_config.trace_level];
+    uint64_t datatype_config = (level_iter == trace_level_map_.end())
+        ? Level0
+        : trace_level_map_[npu_config.trace_level];
     auto metrics_iter = npu_metrics_map_.find(npu_config.metrics);
-    if (metrics_iter != npu_metrics_map_.end() && npu_config.metrics.compare("ACL_AICORE_NONE") != 0) {
+    if (metrics_iter != npu_metrics_map_.end() &&
+        npu_config.metrics.compare("ACL_AICORE_NONE") != 0) {
       datatype_config |= ACL_PROF_AICORE_METRICS;
       aic_metrics = npu_metrics_map_[npu_config.metrics];
     }
     if (npu_config.l2_cache) {
       datatype_config |= ACL_PROF_L2CACHE;
     }
-        if (npu_config.msprof_tx) {
-            datatype_config |= ACL_PROF_MSPROFTX;
-        }
+    if (npu_config.msprof_tx) {
+      datatype_config |= ACL_PROF_MSPROFTX;
+    }
     if (npu_config.npu_memory) {
       datatype_config |= ACL_PROF_TASK_MEMORY;
       const std::string freq = "50";
-      auto prof_ret = at_npu::native::AclprofSetConfig(ACL_PROF_SYS_HARDWARE_MEM_FREQ, freq.c_str(), freq.size());
+      auto prof_ret = at_npu::native::AclprofSetConfig(
+          ACL_PROF_SYS_HARDWARE_MEM_FREQ, freq.c_str(), freq.size());
       if (prof_ret == ACL_ERROR_PROF_MODULES_UNSUPPORTED) {
         ASCEND_LOGW("not support to set config for sys-hardware-mem.");
       }
     }
     if (npu_config.op_attr) {
-        datatype_config |= ACL_PROF_OP_ATTR;
+      datatype_config |= ACL_PROF_OP_ATTR;
     }
     datatype_config = CheckFeatureConfig(datatype_config);
     int32_t deviceId = 0;
@@ -106,12 +114,15 @@ void ProfilerMgr::Start(const NpuTraceConfig &npu_config, bool cpu_trace) {
     report_enable_.store(true);
     profile_memory_.store(npu_config.npu_memory);
   }
-    msprof_tx_.store(npu_config.msprof_tx);
+  msprof_tx_.store(npu_config.msprof_tx);
   if (npu_config.record_op_args) {
     record_op_args_.store(true);
-    const std::string op_dump_path = std::string(path_.begin(), path_.begin() + path_.find_last_not_of("/") + 1) +
-      "_op_args";
-    at_npu::native::AclopStartDumpArgs(ACL_OP_DUMP_OP_AICORE_ARGS, op_dump_path.c_str());
+    const std::string op_dump_path =
+        std::string(
+            path_.begin(), path_.begin() + path_.find_last_not_of("/") + 1) +
+        "_op_args";
+    at_npu::native::AclopStartDumpArgs(
+        ACL_OP_DUMP_OP_AICORE_ARGS, op_dump_path.c_str());
   }
 }
 
@@ -127,11 +138,11 @@ void ProfilerMgr::Stop() {
     at_npu::native::AclProfilingStop(profConfig_);
     auto ret = at_npu::native::AclProfilingDestroyConfig(profConfig_);
     if (ret != ACL_SUCCESS) {
-        ASCEND_LOGE("AclProfDestoryConfig fail, error code: %d", ret);
+      ASCEND_LOGE("AclProfDestoryConfig fail, error code: %d", ret);
     }
     profConfig_ = nullptr;
   }
-    msprof_tx_.store(false);
+  msprof_tx_.store(false);
   if (record_op_args_.load() == true) {
     at_npu::native::AclopStopDumpArgs(ACL_OP_DUMP_OP_AICORE_ARGS);
     record_op_args_.store(false);
@@ -145,17 +156,17 @@ void ProfilerMgr::Finalize() {
   npu_trace_.store(false);
 }
 
-void ProfilerMgr::Upload(std::unique_ptr<torch_npu::toolkit::profiler::BaseReportData> data) {
+void ProfilerMgr::Upload(
+    std::unique_ptr<torch_npu::toolkit::profiler::BaseReportData> data) {
   dataReceiver_.Report(std::move(data));
 }
 
-uint64_t ProfilerMgr::CheckFeatureConfig(uint64_t datatype_config)
-{
-    if (!FeatureMgr::GetInstance()->IsSupportFeature(FeatureType::FEATURE_ATTR)) {
-        ASCEND_LOGW("Not support to set config for ATTR.");
-        return datatype_config & ~(ACL_PROF_OP_ATTR);
-    }
-    return datatype_config;
+uint64_t ProfilerMgr::CheckFeatureConfig(uint64_t datatype_config) {
+  if (!FeatureMgr::GetInstance()->IsSupportFeature(FeatureType::FEATURE_ATTR)) {
+    ASCEND_LOGW("Not support to set config for ATTR.");
+    return datatype_config & ~(ACL_PROF_OP_ATTR);
+  }
+  return datatype_config;
 }
-} // profiler
-} // torch_npu
+} // namespace profiler
+} // namespace torch_npu

@@ -3,9 +3,9 @@
 
 #include <c10/util/SmallVector.h>
 
-#include "third_party/acl/inc/acl/acl_base.h"
-#include "npu/framework/utils/NpuUtils.h"
 #include "npu/framework/utils/NPUDefinition.h"
+#include "npu/framework/utils/NpuUtils.h"
+#include "third_party/acl/inc/acl/acl_base.h"
 
 namespace at_npu {
 namespace native {
@@ -16,7 +16,6 @@ constexpr int MAX_DIM = 5;
 
 // Define the discontiguous cases vector to be optimized
 using OptimizationCases = c10::SmallVector<std::string, MAX_CASES>;
-
 
 struct ContiguousTensorDesc {
   bool is_contiguous_;
@@ -30,8 +29,8 @@ struct ContiguousTensorDesc {
   aclFormat npu_format_;
   OptimizationCases opt_cases_;
   void refresh_contiguous_using_size_and_stride();
-  void reset_optimization_cases(const OptimizationCases &opt_cases);
-  void add_optimization_case(const std::string &opt_case);
+  void reset_optimization_cases(const OptimizationCases& opt_cases);
+  void add_optimization_case(const std::string& opt_case);
   void find_match_optimization_cases();
   size_t hash_src_desc;
   bool cached_contiguous;

@@ -1,6 +1,6 @@
 #include <ATen/Utils.h>
-#include <c10/core/StreamGuard.h>
 #include <ATen/core/GeneratorForPrivateuseone.h>
+#include <c10/core/StreamGuard.h>
 
 #include "npu/core/npu/NPUFunctions.h"
 
@@ -25,9 +25,9 @@ static std::deque<std::once_flag> npu_gens_init_flag;
 static std::vector<at::Generator> default_gens_npu;
 
 /*
-* Populates the global variables related to NPU generators
-* Warning: this function must only be called once!
-*/
+ * Populates the global variables related to NPU generators
+ * Warning: this function must only be called once!
+ */
 static void initNPUGenVector() {
   num_npus = c10_npu::device_count();
   npu_gens_init_flag.resize(num_npus);
@@ -68,7 +68,10 @@ at::Generator createNPUGenerator(c10::DeviceIndex device_index) {
   if (idx == -1) {
     idx = c10_npu::current_device();
   }
-  TORCH_CHECK(idx >= 0 && idx < num_npus, "The device_index is invalid.", PTA_ERROR(ErrCode::VALUE));
+  TORCH_CHECK(
+      idx >= 0 && idx < num_npus,
+      "The device_index is invalid.",
+      PTA_ERROR(ErrCode::VALUE));
   auto gen = at::make_generator<NPUGeneratorImpl>(idx);
   auto npu_gen = at::check_generator<NPUGeneratorImpl>(gen);
   npu_gen->set_current_seed(c10::default_rng_seed_val);
@@ -85,19 +88,21 @@ at::Generator createNPUGenerator(c10::DeviceIndex device_index) {
  * But jit kernels don't use curand, they use a custom "Philox" class (see
  * torch/csrc/jit/tensorexpr/npu_random.h or
  * torch/csrc/jit/codegen/npu/runtime/random_numbers.cu).
- * The "Philox" constructor computes offset/4 (a uint64_t division) to locate its
- * internal start in its virtual bitstream viewed as 128-bit chunks, then, when called
- * in a thread, returns one 32-bit chunk at a time from that start in the bitstream.
- * In other words, if the incoming offset is not a multiple of 4, each thread
- * might repeat some previously-generated 32-bit values in the bitstream.
+ * The "Philox" constructor computes offset/4 (a uint64_t division) to locate
+ * its internal start in its virtual bitstream viewed as 128-bit chunks, then,
+ * when called in a thread, returns one 32-bit chunk at a time from that start
+ * in the bitstream. In other words, if the incoming offset is not a multiple of
+ * 4, each thread might repeat some previously-generated 32-bit values in the
+ * bitstream.
  */
 
 /**
  * NPUGeneratorImpl class implementation
  */
 NPUGeneratorImpl::NPUGeneratorImpl(c10::DeviceIndex device_index)
-  : c10::GeneratorImpl{c10::Device(c10::DeviceType::PrivateUse1, device_index),
-              c10::DispatchKeySet(c10::DispatchKey::PrivateUse1)} {
+    : c10::GeneratorImpl{
+          c10::Device(c10::DeviceType::PrivateUse1, device_index),
+          c10::DispatchKeySet(c10::DispatchKey::PrivateUse1)} {
   // at::npu::assertNotCapturing("Cannot construct a new NPUGeneratorImpl");
 }
 
@@ -130,11 +135,11 @@ uint64_t NPUGeneratorImpl::get_offset() const {
   return philox_offset_per_thread_;
 }
 
-#define CAPTURE_DEFAULT_GENS_MSG \
-"In regions captured by NPU graphs, you may only use the default NPU RNG " \
-"generator on the device that's current when capture begins. " \
-"If you need a non-default (user-supplied) generator, or a generator on another " \
-"device, please file an issue."
+#define CAPTURE_DEFAULT_GENS_MSG                                                    \
+  "In regions captured by NPU graphs, you may only use the default NPU RNG "        \
+  "generator on the device that's current when capture begins. "                    \
+  "If you need a non-default (user-supplied) generator, or a generator on another " \
+  "device, please file an issue."
 
 /**
  * Gets the current seed of NPUGeneratorImpl.
@@ -164,21 +169,31 @@ uint64_t NPUGeneratorImpl::seed() {
  */
 c10::intrusive_ptr<c10::TensorImpl> NPUGeneratorImpl::get_state() const {
   // The RNG state comprises the seed, and an offset used for Philox.
-  // The following line is just here for BC reason. sizeof curandStateMtgp32 is 4120.
-  // It used to be static const size_t states_size = MAX_NUM_BLOCKS * sizeof(curandStateMtgp32);
-  // MAX_NUM_BLOCKS was 200 and sizeof(curandStateMtgp32) is 4120. Hardcoding these numbers here
-  // because this is just host side code and we don't want to worry about linking with npu
+  // The following line is just here for BC reason. sizeof curandStateMtgp32 is
+  // 4120. It used to be static const size_t states_size = MAX_NUM_BLOCKS *
+  // sizeof(curandStateMtgp32); MAX_NUM_BLOCKS was 200 and
+  // sizeof(curandStateMtgp32) is 4120. Hardcoding these numbers here because
+  // this is just host side code and we don't want to worry about linking with
+  // npu
   static const size_t seed_size = sizeof(uint64_t);
   static const size_t offset_size = sizeof(int64_t);
   static const size_t total_size = seed_size + offset_size;
 
-  auto state_tensor = at::detail::empty_cpu({(int64_t)total_size}, at::ScalarType::Byte,
-                                            c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+  auto state_tensor = at::detail::empty_cpu(
+      {(int64_t)total_size},
+      at::ScalarType::Byte,
+      c10::nullopt,
+      c10::nullopt,
+      c10::nullopt,
+      c10::nullopt);
   auto rng_state = state_tensor.data_ptr<uint8_t>();
-  // since curandStateMTGP is not used anymore, fill gen_states of THCGenerator with deterministic garbage value of -1
-  // gen_states in THCGenerator struct was an array of curandStateMtgp32s.
+  // since curandStateMTGP is not used anymore, fill gen_states of THCGenerator
+  // with deterministic garbage value of -1 gen_states in THCGenerator struct
+  // was an array of curandStateMtgp32s.
   auto current_seed = this->current_seed();
-  auto offset = static_cast<int64_t>(this->philox_offset_per_thread()); // Note that old THCGeneratorState had offset as std::atomic<int64_t>
+  auto offset = static_cast<int64_t>(
+      this->philox_offset_per_thread()); // Note that old THCGeneratorState had
+                                         // offset as std::atomic<int64_t>
   memcpy(rng_state, &current_seed, seed_size);
   memcpy(rng_state + seed_size, &offset, offset_size);
 
@@ -203,7 +218,10 @@ void NPUGeneratorImpl::set_state(const c10::TensorImpl& new_state) {
   if (new_state_size == total_size - offset_size) {
     no_philox_seed = true;
   } else {
-    TORCH_CHECK(new_state_size == total_size, "RNG state is wrong size", PTA_ERROR(ErrCode::PARAM));
+    TORCH_CHECK(
+        new_state_size == total_size,
+        "RNG state is wrong size",
+        PTA_ERROR(ErrCode::PARAM));
   }
 
   uint64_t input_seed;
@@ -224,7 +242,10 @@ void NPUGeneratorImpl::set_state(const c10::TensorImpl& new_state) {
  */
 void NPUGeneratorImpl::set_philox_offset_per_thread(uint64_t offset) {
   // see Note [Why enforce RNG offset % 4 == 0?]
-  TORCH_CHECK(offset % 4 == 0, "offset must be a multiple of 4", PTA_ERROR(ErrCode::VALUE));
+  TORCH_CHECK(
+      offset % 4 == 0,
+      "offset must be a multiple of 4",
+      PTA_ERROR(ErrCode::VALUE));
   philox_offset_per_thread_ = offset;
 }
 
@@ -281,8 +302,8 @@ PhiloxNpuState NPUGeneratorImpl::philox_npu_state(uint64_t increment) {
   /*
   if (at::npu::currentStreamCaptureStatus() != at::npu::CaptureStatus::None) {
     TORCH_CHECK(graph_expects_this_gen_,
-                "philox_npu_state for an unexpected NPU generator used during capture. "
-                CAPTURE_DEFAULT_GENS_MSG);
+                "philox_npu_state for an unexpected NPU generator used during
+  capture. " CAPTURE_DEFAULT_GENS_MSG);
     // see Note [Why enforce RNG offset % 4 == 0?]
     TORCH_INTERNAL_ASSERT(this->offset_intragraph_ % 4 == 0);
     uint32_t offset = this->offset_intragraph_;
@@ -310,11 +331,13 @@ PhiloxNpuState NPUGeneratorImpl::philox_npu_state(uint64_t increment) {
  * Temporarily accommodates call sites that use philox_engine_inputs.
  * Allows incremental refactor of call sites to use philox_npu_state.
  */
-std::pair<uint64_t, uint64_t> NPUGeneratorImpl::philox_engine_inputs(uint64_t increment) {
+std::pair<uint64_t, uint64_t> NPUGeneratorImpl::philox_engine_inputs(
+    uint64_t increment) {
   // rounds increment up to the nearest multiple of 4
   increment = ((increment + 3) / 4) * 4;
   // see Note [Why enforce RNG offset % 4 == 0?]
-  TORCH_INTERNAL_ASSERT(this->philox_offset_per_thread_ % 4 == 0, PTA_ERROR(ErrCode::INTERNAL));
+  TORCH_INTERNAL_ASSERT(
+      this->philox_offset_per_thread_ % 4 == 0, PTA_ERROR(ErrCode::INTERNAL));
   uint64_t offset = this->philox_offset_per_thread_;
   this->philox_offset_per_thread_ += increment;
   return std::make_pair(this->seed_, offset);

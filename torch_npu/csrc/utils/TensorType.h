@@ -1,7 +1,7 @@
 #include <torch/csrc/utils/tensor_new.h>
 
-#include "npu/core/npu/NPUMacros.h"
 #include "npu/core/npu/NPUFunctions.h"
+#include "npu/core/npu/NPUMacros.h"
 
 namespace torch_npu {
 namespace utils {
@@ -12,5 +12,5 @@ void _initialize_python_bindings();
 
 TORCH_NPU_API PyMethodDef* npu_extension_functions();
 
-}
-}
+} // namespace utils
+} // namespace torch_npu

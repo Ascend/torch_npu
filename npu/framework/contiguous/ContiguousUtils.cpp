@@ -22,11 +22,11 @@ void ContiguousTensorDesc::refresh_contiguous_using_size_and_stride() {
 }
 
 void ContiguousTensorDesc::reset_optimization_cases(
-    const OptimizationCases &opt_cases) {
+    const OptimizationCases& opt_cases) {
   opt_cases_ = opt_cases;
 }
 
-void ContiguousTensorDesc::add_optimization_case(const std::string &opt_case) {
+void ContiguousTensorDesc::add_optimization_case(const std::string& opt_case) {
   opt_cases_.emplace_back(opt_case);
 }
 

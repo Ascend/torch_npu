@@ -14,23 +14,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "third_party/op-plugin/op_plugin/utils/op_api_common.h"
-#include "npu/framework/utils/OpPreparation.h"
-#include "aten/NPUOpApiNativeFunctions.h"
 #include "aten/NPUNativeFunctions.h"
+#include "aten/NPUOpApiNativeFunctions.h"
+#include "npu/framework/utils/OpPreparation.h"
+#include "third_party/op-plugin/op_plugin/utils/op_api_common.h"
 
 namespace at_npu {
 namespace native {
 
-at::Tensor NPUNativeOpApiFunctions::clone(const at::Tensor &src, c10::optional<c10::MemoryFormat> format)
-{
-    DO_COMPATIBILITY(aclnnInplaceCopy, NPUNativeFunctions::clone(src, format));
-    auto baseSelf = OpPreparation::apply_tensor_without_format(src);
-    EXEC_NPU_CMD(aclnnInplaceCopy, baseSelf, src);
-    at::namedinference::propagate_names(baseSelf, src);
-    return baseSelf;
+at::Tensor NPUNativeOpApiFunctions::clone(
+    const at::Tensor& src,
+    c10::optional<c10::MemoryFormat> format) {
+  DO_COMPATIBILITY(aclnnInplaceCopy, NPUNativeFunctions::clone(src, format));
+  auto baseSelf = OpPreparation::apply_tensor_without_format(src);
+  EXEC_NPU_CMD(aclnnInplaceCopy, baseSelf, src);
+  at::namedinference::propagate_names(baseSelf, src);
+  return baseSelf;
 }
 
-}  // namespace native
-}  // namespace at_npu
-
+} // namespace native
+} // namespace at_npu

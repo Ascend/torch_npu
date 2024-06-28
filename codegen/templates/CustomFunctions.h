@@ -9,8 +9,8 @@ namespace custom_ops {
 
 ${custom_function_declarations}
 
-}  // namespace custom_ops
-}  // namespace native
-}  // namespace at_npu
+} // namespace custom_ops
+} // namespace native
+} // namespace at_npu
 
 #endif

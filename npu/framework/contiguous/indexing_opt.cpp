@@ -1,30 +1,34 @@
-#include "npu/framework/contiguous/ContiguousOpt.h"
 #include "aten/CustomFunctions.h"
+#include "npu/framework/contiguous/ContiguousOpt.h"
 
 namespace at_npu {
 namespace native {
 
 class IndexingContiguousOpt : public ContiguousOpt {
-public:
-  bool Optimizer(at::Tensor &self, const at::Tensor &src,
-                 const ContiguousTensorDesc &src_desc) override {
+ public:
+  bool Optimizer(
+      at::Tensor& self,
+      const at::Tensor& src,
+      const ContiguousTensorDesc& src_desc) override {
     c10::SmallVector<int64_t, MAX_DIM> start;
     c10::SmallVector<int64_t, MAX_DIM> end;
     c10::SmallVector<int64_t, MAX_DIM> step;
 
     if (can_use_indexing(src_desc, start, end, step)) {
-      RECORD_FUNCTION("contiguous_d_StridedSlice", std::vector<c10::IValue>({src}));
+      RECORD_FUNCTION(
+          "contiguous_d_StridedSlice", std::vector<c10::IValue>({src}));
       indexing_to_contiguous(self, src, start, end, step, src_desc);
       return true;
     }
     return false;
   }
 
-private:
-  bool can_use_indexing(const ContiguousTensorDesc &src_desc,
-                        c10::SmallVector<int64_t, MAX_DIM> &start,
-                        c10::SmallVector<int64_t, MAX_DIM> &end,
-                        c10::SmallVector<int64_t, MAX_DIM> &step) {
+ private:
+  bool can_use_indexing(
+      const ContiguousTensorDesc& src_desc,
+      c10::SmallVector<int64_t, MAX_DIM>& start,
+      c10::SmallVector<int64_t, MAX_DIM>& end,
+      c10::SmallVector<int64_t, MAX_DIM>& step) {
     if (c10::multiply_integers(src_desc.sizes_) >=
         c10::multiply_integers(src_desc.base_sizes_)) {
       return false;
@@ -37,15 +41,14 @@ private:
       return false;
     }
 
-    const auto &base_size = src_desc.base_sizes_;
-    const auto &base_stride = src_desc.base_strides_;
-    const auto &indexing_size = src_desc.sizes_;
-    const auto &indexing_stride = src_desc.strides_;
+    const auto& base_size = src_desc.base_sizes_;
+    const auto& base_stride = src_desc.base_strides_;
+    const auto& indexing_size = src_desc.sizes_;
+    const auto& indexing_stride = src_desc.strides_;
 
     for (const auto i : c10::irange(indexing_size.size())) {
       // base_stride should not be 0.
-      if ((base_stride[i] == 0) ||
-          (indexing_stride[i] < base_stride[i]) ||
+      if ((base_stride[i] == 0) || (indexing_stride[i] < base_stride[i]) ||
           ((indexing_stride[i] % base_stride[i]) != 0)) {
         return false;
       }
@@ -110,17 +113,21 @@ private:
     return true;
   }
 
-  void indexing_to_contiguous(at::Tensor &self, const at::Tensor &src,
-                              c10::SmallVector<int64_t, MAX_DIM> &start,
-                              c10::SmallVector<int64_t, MAX_DIM> &end,
-                              c10::SmallVector<int64_t, MAX_DIM> &step,
-                              const ContiguousTensorDesc &src_desc) {
-    const auto &base_size = src_desc.base_sizes_;
+  void indexing_to_contiguous(
+      at::Tensor& self,
+      const at::Tensor& src,
+      c10::SmallVector<int64_t, MAX_DIM>& start,
+      c10::SmallVector<int64_t, MAX_DIM>& end,
+      c10::SmallVector<int64_t, MAX_DIM>& step,
+      const ContiguousTensorDesc& src_desc) {
+    const auto& base_size = src_desc.base_sizes_;
     // recover contiguous base tensor
-    at::Tensor temp_src = TransContiguous::view_tensor(src, src_desc.base_offset_, base_size, src_desc.base_strides_);
+    at::Tensor temp_src = TransContiguous::view_tensor(
+        src, src_desc.base_offset_, base_size, src_desc.base_strides_);
 
     // call StridedSlice op
-    custom_ops::npu_indexing_out(temp_src, start, end, step, 0, 0, 0, 0, 0, self);
+    custom_ops::npu_indexing_out(
+        temp_src, start, end, step, 0, 0, 0, 0, 0, self);
 
     return;
   }

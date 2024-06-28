@@ -11,6 +11,13 @@ IFS='.' read -ra version_parts <<< "$pytorch_version"
 
 pytorch_dir="v${version_parts[0]}r${version_parts[1]}"
 
+find $CDIR/third_party/op-plugin -name "*.h" -o -name "*.cpp" -o -name "*.hpp" | \
+xargs -I {} sed -i "s/torch_npu\/csrc\/aten/aten/g" {}
+find $CDIR/third_party/op-plugin -name "*.h" -o -name "*.cpp" -o -name "*.hpp" | \
+xargs -I {} sed -i "s/torch_npu\/csrc\/core/npu\/core/g" {}
+find $CDIR/third_party/op-plugin -name "*.h" -o -name "*.cpp" -o -name "*.hpp" | \
+xargs -I {} sed -i "s/torch_npu\/csrc\/framework/npu\/framework/g" {}
+
 file=$CDIR/third_party/op-plugin/gencode.sh
 
 if [ -f "${file}" ]; then

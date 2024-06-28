@@ -6,10 +6,10 @@ namespace torch_npu {
 namespace utils {
 
 class OverflowUtil {
-public:
+ public:
   ~OverflowUtil();
 
-  static OverflowUtil *GetInstance() {
+  static OverflowUtil* GetInstance() {
     static OverflowUtil instance;
     return &instance;
   }
@@ -18,10 +18,10 @@ public:
   bool CheckOverflowNpu();
   void ClearOverflowNpu();
 
-private:
+ private:
   OverflowUtil();
   bool hasOverflow = false;
 };
 
-}
-}
+} // namespace utils
+} // namespace torch_npu

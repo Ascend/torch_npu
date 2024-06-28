@@ -8,8 +8,8 @@
 #include <string>
 #include <vector>
 
-#include <ATen/core/Tensor.h>
 #include <ATen/Context.h>
+#include <ATen/core/Tensor.h>
 
 #include <c10/util/intrusive_ptr.h>
 
@@ -17,10 +17,11 @@
 #include <torch/csrc/autograd/autograd_not_implemented_fallback.h>
 
 namespace at {
-  struct Quantizer;
+struct Quantizer;
 };
 
-namespace at_npu { namespace autograd {
+namespace at_npu {
+namespace autograd {
 
 using Variable = at::Tensor;
 using at::Context;
@@ -31,13 +32,13 @@ using at::Generator;
 using at::IntArrayRef;
 using at::MemoryFormat;
 using at::QScheme;
+using at::Quantizer;
 using at::Scalar;
 using at::ScalarType;
 using at::Storage;
 using at::Tensor;
 using at::TensorList;
 using at::TensorOptions;
-using at::Quantizer;
 // This is temporary typedef to enable Quantizer in aten native function API
 // we'll remove them when we are actually exposing Quantizer class
 // to frontend
@@ -45,14 +46,15 @@ using ConstQuantizerPtr = const c10::intrusive_ptr<Quantizer>&;
 using c10::optional;
 
 namespace VariableType {
-  TORCH_API std::vector<at::DeprecatedTypeProperties*> allCPUTypes();
+TORCH_API std::vector<at::DeprecatedTypeProperties*> allCPUTypes();
 
-  at::Tensor& unpack(Tensor& t, const char* name, int pos);
-  const at::Tensor& unpack(const Tensor& t, const char* name, int pos);
-  at::Tensor unpack_opt(const Tensor& t, const char* name, int pos);
-  std::vector<at::Tensor> unpack(at::TensorList tl, const char *name, int pos);
+at::Tensor& unpack(Tensor& t, const char* name, int pos);
+const at::Tensor& unpack(const Tensor& t, const char* name, int pos);
+at::Tensor unpack_opt(const Tensor& t, const char* name, int pos);
+std::vector<at::Tensor> unpack(at::TensorList tl, const char* name, int pos);
 
-  ${npu_variable_type}
-};
+${npu_variable_type}
+}; // namespace VariableType
 
-}} // namespace at_npu::autograd
+} // namespace autograd
+} // namespace at_npu

@@ -10,8 +10,9 @@ enum class BuiltinCommHookType {
   FP16_COMPRESS = 2,
 };
 
-class AllReduceCommHook : public CppCommHookInterface<c10::intrusive_ptr<ProcessGroup>> {
-public:
+class AllReduceCommHook
+    : public CppCommHookInterface<c10::intrusive_ptr<ProcessGroup>> {
+ public:
   explicit AllReduceCommHook(c10::intrusive_ptr<ProcessGroup> state)
       : CppCommHookInterface<c10::intrusive_ptr<ProcessGroup>>(state) {}
 
@@ -20,8 +21,9 @@ public:
   c10::intrusive_ptr<c10::ivalue::Future> runHook(GradBucket& bucket) override;
 };
 
-class FP16CompressCommHook : public CppCommHookInterface<c10::intrusive_ptr<ProcessGroup>> {
-public:
+class FP16CompressCommHook
+    : public CppCommHookInterface<c10::intrusive_ptr<ProcessGroup>> {
+ public:
   explicit FP16CompressCommHook(c10::intrusive_ptr<ProcessGroup> state)
       : CppCommHookInterface<c10::intrusive_ptr<ProcessGroup>>(state) {}
 
@@ -32,11 +34,12 @@ public:
 
 // Almost same as AllReduceCommHook, but without division inside the hook.
 // This enables the optimization of fusing copy and division and saves one scan
-// over all the input parameters, when no communication hook is provided by the user.
-// Only used internally and not released as a public built-in communication hook.
+// over all the input parameters, when no communication hook is provided by the
+// user. Only used internally and not released as a public built-in
+// communication hook.
 class _AllReduceBySumCommHook
     : public CppCommHookInterface<c10::intrusive_ptr<ProcessGroup>> {
-public:
+ public:
   explicit _AllReduceBySumCommHook(c10::intrusive_ptr<ProcessGroup> state)
       : CppCommHookInterface<c10::intrusive_ptr<ProcessGroup>>(state) {}
 

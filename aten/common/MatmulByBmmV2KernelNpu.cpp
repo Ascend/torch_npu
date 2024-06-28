@@ -1,11 +1,13 @@
-#include "npu/framework/utils/OpAdapter.h"
-#include "aten/NPUNativeFunctions.h"
 #include "aten/CustomFunctions.h"
+#include "aten/NPUNativeFunctions.h"
+#include "npu/framework/utils/OpAdapter.h"
 
 namespace at_npu {
 namespace native {
 
-at::Tensor matmul_by_bmmV2(const at::Tensor& tensor1, const at::Tensor& tensor2) {
+at::Tensor matmul_by_bmmV2(
+    const at::Tensor& tensor1,
+    const at::Tensor& tensor2) {
   auto dim_tensor1 = tensor1.dim();
   auto dim_tensor2 = tensor2.dim();
   if (dim_tensor1 == 1 && dim_tensor2 == 1) {
@@ -31,11 +33,17 @@ at::Tensor matmul_by_bmmV2(const at::Tensor& tensor1, const at::Tensor& tensor2)
     return output;
   } else if ((dim_tensor1 == 1 || dim_tensor1 == 2) && dim_tensor2 >= 3) {
     return custom_ops::npu_bmmV2(tensor1, tensor2, {});
-  } else if ((dim_tensor1 >= 1 && dim_tensor2 >= 1) && (dim_tensor1 >= 3 || dim_tensor2 >= 3)) {
+  } else if (
+      (dim_tensor1 >= 1 && dim_tensor2 >= 1) &&
+      (dim_tensor1 >= 3 || dim_tensor2 >= 3)) {
     return custom_ops::npu_bmmV2(tensor1, tensor2, {});
   }
-  AT_ERROR("both arguments to matmul need to be at least 1D, but they are ",
-      dim_tensor1, "D and ", dim_tensor2, "D");
+  AT_ERROR(
+      "both arguments to matmul need to be at least 1D, but they are ",
+      dim_tensor1,
+      "D and ",
+      dim_tensor2,
+      "D");
 }
-}
-}
+} // namespace native
+} // namespace at_npu

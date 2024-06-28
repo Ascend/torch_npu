@@ -22,8 +22,8 @@
 #ifndef _WIN32
 #include <torch/csrc/distributed/autograd/context/context.h>
 #endif
-#include <c10d/logger.hpp>
 #include <c10d/debug.h>
+#include <c10d/logger.hpp>
 
 namespace c10d_npu {
 
@@ -33,26 +33,26 @@ constexpr int kDefaultBucketBytesCap = int(25 * 1024 * 1024);
 constexpr int kDDPRuntimeLoggingSampleRate = 100;
 constexpr int kUnsetTime = -1;
 
-inline int64_t current_time_in_nanos()
-{
-    return c10::getTime();
+inline int64_t current_time_in_nanos() {
+  return c10::getTime();
 }
 
 // Forward declaration
 class Logger;
 
 class TORCH_API Timer {
-  private:
-    // The timestamp of forward call start time in each iteration.
-    int64_t forward_start_time = kUnsetTime;
-    // The timestamp of backward computation start and end time in each
-    // iteration.
-    int64_t backward_compute_start_time = kUnsetTime;
-    int64_t backward_compute_end_time = kUnsetTime;
-    // The timestamp of first communication call start time in each iteration.
-    int64_t backward_comm_start_time = kUnsetTime;
-    // The timestamp of last communication call end time in each iteration.
+ private:
+  // The timestamp of forward call start time in each iteration.
+  int64_t forward_start_time = kUnsetTime;
+  // The timestamp of backward computation start and end time in each
+  // iteration.
+  int64_t backward_compute_start_time = kUnsetTime;
+  int64_t backward_compute_end_time = kUnsetTime;
+  // The timestamp of first communication call start time in each iteration.
+  int64_t backward_comm_start_time = kUnsetTime;
+  // The timestamp of last communication call end time in each iteration.
   int64_t backward_comm_end_time = kUnsetTime;
+
  public:
   enum class Event {
     kForwardStart,
@@ -110,10 +110,15 @@ struct BucketAccumulator {
   size_t size_limit = 0;
 };
 
-C10_DECLARE_TYPED_REGISTRY(TimerRegistry, c10::DeviceType, Timer, std::unique_ptr, c10::Device);
+C10_DECLARE_TYPED_REGISTRY(
+    TimerRegistry,
+    c10::DeviceType,
+    Timer,
+    std::unique_ptr,
+    c10::Device);
 
 class Reducer {
-public:
+ public:
   // The constructor takes a list of variables for every model replica.
   // The bucket assignment for this reducer is specified as a list of
   // buckets, each of which is specified as a list of indices into the
@@ -174,7 +179,7 @@ public:
 
   // Runs default allreduce hook.
   c10::intrusive_ptr<c10::ivalue::Future> run_allreduce_hook(
-    c10d::GradBucket& grad_bucket);
+      c10d::GradBucket& grad_bucket);
 
   // Returns gradient buckets in sequential order of buckets_. This is the order
   // in which buckets are reduced across processes. If return_zero_tensors=true,
@@ -187,8 +192,8 @@ public:
   bool rebuild_buckets();
 
   // Install futures that should be awaited at end of backwards. Currently these
-  // are only used by user-defined custom buffer reduction hooks, but can be generalized
-  // to any user-originating futures that need to be awaited.
+  // are only used by user-defined custom buffer reduction hooks, but can be
+  // generalized to any user-originating futures that need to be awaited.
   void install_futures(c10::List<c10::intrusive_ptr<c10::ivalue::Future>> futs);
 
   // Returns true if we should rebuild buckets, else false. We only rebuild
@@ -232,7 +237,7 @@ public:
   // current iteration, which means unused params set has not changed.
   bool ddp_graph_static();
 
-protected:
+ protected:
   // Forward declaration.
   struct Bucket;
 
@@ -294,9 +299,10 @@ protected:
 
   // Weak pointer to associated DDP logger.
   std::weak_ptr<c10d::Logger> logger_;
-  // List of futures installed by Reducer::install_futures that should be awaited
-  // at the end of backwards pass.
-  c10::optional<c10::List<c10::intrusive_ptr<c10::ivalue::Future>>> installed_futures_{c10::nullopt};
+  // List of futures installed by Reducer::install_futures that should be
+  // awaited at the end of backwards pass.
+  c10::optional<c10::List<c10::intrusive_ptr<c10::ivalue::Future>>>
+      installed_futures_{c10::nullopt};
 
   // Work handle for allreduce on local_used_map_
   c10::intrusive_ptr<c10d::Work> local_used_work_;
@@ -319,7 +325,8 @@ protected:
   // bucket_index is a key to cache after buckets are rebuilt, after which this
   // mapping never changes.
   std::vector<at::Tensor> get_variables_for_bucket(
-      size_t bucket_index, const Bucket& bucket) const;
+      size_t bucket_index,
+      const Bucket& bucket) const;
 
   // Asserts that the reduction for the previous iteration has finished before
   // rebuilding buckets or kicking off the next one.
@@ -342,7 +349,7 @@ protected:
           value,
       "");
 #endif
-  void runGradCallbackForVariable(at::Tensor& variable, GradCallback && cb);
+  void runGradCallbackForVariable(at::Tensor& variable, GradCallback&& cb);
 
   // A bucket replica represents [1..N] gradients to be reduced,
   // with the same dtype, on the same device.
@@ -507,7 +514,7 @@ protected:
     ContextPtr context_ptr_holder;
     std::atomic<ContextPtr::element_type*> context_ptr{nullptr};
 
-    void set(ContextPtr && new_context_ptr);
+    void set(ContextPtr&& new_context_ptr);
   };
   RpcContext rpc_context_;
 #endif
@@ -543,7 +550,7 @@ protected:
   // track a grad is ready for communication or not.
   std::unordered_map<size_t, int> numGradHooksTriggeredMapPerIteration_;
 
-private:
+ private:
   // reset counting for buckets before backward starts
   void reset_bucket_counting();
   // search unused parameters beore backward starts
@@ -592,7 +599,8 @@ private:
 
   // Cached bucket index to model parameter mapping. Populated after buckets
   // are rebuilt after which this mapping is static.
-  mutable std::unordered_map<size_t, std::vector<at::Tensor>> cached_variables_for_bucket_;
+  mutable std::unordered_map<size_t, std::vector<at::Tensor>>
+      cached_variables_for_bucket_;
 
   friend class Logger;
 };
@@ -603,7 +611,8 @@ private:
 // The index of tensors[i] assigned to bucket is tensor_indices[i],
 // when tensor_indices is empty, the index of tensors[i] assigned to
 // bucket is i.
-std::tuple<std::vector<std::vector<size_t>>, std::vector<size_t>> compute_bucket_assignment_by_size(
+std::tuple<std::vector<std::vector<size_t>>, std::vector<size_t>>
+compute_bucket_assignment_by_size(
     const std::vector<at::Tensor>& tensors,
     const std::vector<size_t>& bucket_size,
     const std::vector<bool>& expect_sparse_gradient = {},

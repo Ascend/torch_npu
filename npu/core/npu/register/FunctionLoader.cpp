@@ -49,40 +49,49 @@ void* FunctionLoader::Get(const std::string& name) {
 }
 
 namespace register_function {
-  FunctionRegister* FunctionRegister::GetInstance() {
-    static FunctionRegister instance;
-    return &instance;
-  }
-  void FunctionRegister::Register(const std::string& name, ::std::unique_ptr<FunctionLoader>& ptr) {
-    std::lock_guard<std::mutex> lock(mu_);
-    registry.emplace(name, std::move(ptr));
-  }
+FunctionRegister* FunctionRegister::GetInstance() {
+  static FunctionRegister instance;
+  return &instance;
+}
+void FunctionRegister::Register(
+    const std::string& name,
+    ::std::unique_ptr<FunctionLoader>& ptr) {
+  std::lock_guard<std::mutex> lock(mu_);
+  registry.emplace(name, std::move(ptr));
+}
 
-  void FunctionRegister::Register(const std::string& name, const std::string& funcName) {
-    auto itr = registry.find(name);
-    if (itr == registry.end()) {
-      AT_ERROR(name, " library should register first.");
-      return;
-    }
-    itr->second->Set(funcName);
+void FunctionRegister::Register(
+    const std::string& name,
+    const std::string& funcName) {
+  auto itr = registry.find(name);
+  if (itr == registry.end()) {
+    AT_ERROR(name, " library should register first.");
+    return;
   }
+  itr->second->Set(funcName);
+}
 
-  void* FunctionRegister::Get(const std::string& soName, const std::string& funcName) {
-    auto itr = registry.find(soName);
-    if (itr != registry.end()) {
-      return itr->second->Get(funcName);
-    }
-    return nullptr;
+void* FunctionRegister::Get(
+    const std::string& soName,
+    const std::string& funcName) {
+  auto itr = registry.find(soName);
+  if (itr != registry.end()) {
+    return itr->second->Get(funcName);
   }
+  return nullptr;
+}
 
-  FunctionRegisterBuilder::FunctionRegisterBuilder(const std::string& name, ::std::unique_ptr<FunctionLoader>& ptr) {
-    FunctionRegister::GetInstance()->Register(name, ptr);
-  }
-  FunctionRegisterBuilder::FunctionRegisterBuilder(const std::string& soName, const std::string& funcName) {
-    FunctionRegister::GetInstance()->Register(soName, funcName);
-  }
+FunctionRegisterBuilder::FunctionRegisterBuilder(
+    const std::string& name,
+    ::std::unique_ptr<FunctionLoader>& ptr) {
+  FunctionRegister::GetInstance()->Register(name, ptr);
+}
+FunctionRegisterBuilder::FunctionRegisterBuilder(
+    const std::string& soName,
+    const std::string& funcName) {
+  FunctionRegister::GetInstance()->Register(soName, funcName);
+}
 } // namespace register_function
-
 
 } // namespace option
 } // namespace c10_npu

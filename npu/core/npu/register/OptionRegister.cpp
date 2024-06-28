@@ -21,14 +21,14 @@ std::string OptionInterface::Get() {
   return val;
 }
 
-
 namespace register_options {
 OptionRegister* OptionRegister::GetInstance() {
   static OptionRegister instance;
   return &instance;
 }
 
-void OptionRegister::Register(const std::string& name,
+void OptionRegister::Register(
+    const std::string& name,
     ::std::unique_ptr<OptionInterface>& ptr) {
   std::lock_guard<std::mutex> lock(mu_);
   registry.emplace(name, std::move(ptr));
@@ -60,7 +60,8 @@ OptionInterfaceBuilder::OptionInterfaceBuilder(
   // init the value if env variable.
   if (type == "env") {
     std::string env_name = name;
-    std::transform(env_name.begin(), env_name.end(), env_name.begin(), ::toupper);
+    std::transform(
+        env_name.begin(), env_name.end(), env_name.begin(), ::toupper);
     char* env_val = std::getenv(env_name.c_str());
     if (env_val != nullptr) {
       std::string val(env_val);

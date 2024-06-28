@@ -1,12 +1,11 @@
 #pragma once
 
-#include <c10/core/GeneratorImpl.h>
-#include <ATen/core/Generator.h>
-#include <ATen/Tensor.h>
 #include <ATen/Context.h>
+#include <ATen/Tensor.h>
+#include <ATen/core/Generator.h>
+#include <c10/core/GeneratorImpl.h>
 #include <limits>
 #include "npu/core/npu/NPUMacros.h"
-
 
 namespace at_npu {
 /**
@@ -84,21 +83,20 @@ namespace at_npu {
  *
  */
 
-
 // Stores state values. Passed as a kernel argument. See "Usage:" above.
 struct PhiloxNpuState {
   PhiloxNpuState() = default;
   PhiloxNpuState(const PhiloxNpuState&) = default;
   // Called if graph capture is not underway
-  PhiloxNpuState(uint64_t seed,
-                  uint64_t offset) {
+  PhiloxNpuState(uint64_t seed, uint64_t offset) {
     seed_ = seed;
     offset_.val = offset;
   }
   // Called if graph capture is underway
-  PhiloxNpuState(uint64_t seed,
-                  int64_t* offset_extragraph,
-                  uint32_t offset_intragraph) {
+  PhiloxNpuState(
+      uint64_t seed,
+      int64_t* offset_extragraph,
+      uint32_t offset_intragraph) {
     seed_ = seed;
     offset_.ptr = offset_extragraph;
     offset_intragraph_ = offset_intragraph;
@@ -144,7 +142,7 @@ struct TORCH_NPU_API NPUGeneratorImpl : public c10::GeneratorImpl {
   std::pair<uint64_t, uint64_t> philox_engine_inputs(uint64_t increment);
   static c10::DeviceType device_type();
 
-private:
+ private:
   NPUGeneratorImpl* clone_impl() const override;
   uint64_t seed_ = c10::default_rng_seed_val;
   uint64_t philox_offset_per_thread_ = 0;
@@ -156,7 +154,8 @@ private:
 namespace detail {
 TORCH_NPU_API const at::Generator& getDefaultNPUGenerator(
     c10::DeviceIndex device_index = -1);
-TORCH_NPU_API at::Generator createNPUGenerator(c10::DeviceIndex device_index = -1);
+TORCH_NPU_API at::Generator createNPUGenerator(
+    c10::DeviceIndex device_index = -1);
 
 } // namespace detail
 } // namespace at_npu

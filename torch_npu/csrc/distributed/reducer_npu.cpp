@@ -1,9 +1,8 @@
-#include <c10d/reducer_timer.hpp>
 #include <c10d/debug.h>
+#include <c10d/reducer_timer.hpp>
 
-#include "torch_npu/csrc/npu/Event.h"
 #include "npu/core/npu/NPUGuard.h"
-
+#include "torch_npu/csrc/npu/Event.h"
 
 namespace c10d {
 namespace {
@@ -11,7 +10,7 @@ namespace {
 const int kMilliSecondToNanosSecond = 1000000;
 
 class NpuTimer : public c10d::Timer {
-public:
+ public:
   explicit NpuTimer(c10::Device dev) : device(dev) {}
 
   void record(Event event) override {
@@ -49,7 +48,7 @@ public:
     float milliseconds;
     try {
       milliseconds = start_event.elapsed_time(end_event);
-    } catch (std::exception &e) {
+    } catch (std::exception& e) {
       milliseconds = -1;
     }
     // If gpu_end is not recorded in this iteration,
@@ -64,29 +63,32 @@ public:
     return int64_t(milliseconds * kMilliSecondToNanosSecond);
   }
 
-private:
+ private:
   c10::Device device;
 
   c10_npu::NPUEvent forward_start = c10_npu::NPUEvent(ACL_EVENT_TIME_LINE);
-  c10_npu::NPUEvent backward_compute_start = c10_npu::NPUEvent(ACL_EVENT_TIME_LINE);
-  c10_npu::NPUEvent backward_compute_end = c10_npu::NPUEvent(ACL_EVENT_TIME_LINE);
-  c10_npu::NPUEvent backward_comm_start = c10_npu::NPUEvent(ACL_EVENT_TIME_LINE);
+  c10_npu::NPUEvent backward_compute_start =
+      c10_npu::NPUEvent(ACL_EVENT_TIME_LINE);
+  c10_npu::NPUEvent backward_compute_end =
+      c10_npu::NPUEvent(ACL_EVENT_TIME_LINE);
+  c10_npu::NPUEvent backward_comm_start =
+      c10_npu::NPUEvent(ACL_EVENT_TIME_LINE);
   c10_npu::NPUEvent backward_comm_end = c10_npu::NPUEvent(ACL_EVENT_TIME_LINE);
 
   c10_npu::NPUEvent& getEvent(Event event) {
     switch (event) {
-        case Event::kForwardStart:
-            return forward_start;
-        case Event::kBackwardComputeStart:
-            return backward_compute_start;
-        case Event::kBackwardComputeEnd:
-            return backward_compute_end;
-        case Event::kBackwardCommStart:
-            return backward_comm_start;
-        case Event::kBackwardCommEnd:
-            return backward_comm_end;
-        default:
-            TORCH_INTERNAL_ASSERT(false);
+      case Event::kForwardStart:
+        return forward_start;
+      case Event::kBackwardComputeStart:
+        return backward_compute_start;
+      case Event::kBackwardComputeEnd:
+        return backward_compute_end;
+      case Event::kBackwardCommStart:
+        return backward_comm_start;
+      case Event::kBackwardCommEnd:
+        return backward_comm_end;
+      default:
+        TORCH_INTERNAL_ASSERT(false);
     }
   }
 };

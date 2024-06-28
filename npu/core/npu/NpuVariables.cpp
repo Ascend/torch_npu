@@ -2,8 +2,8 @@
 #include <map>
 #include <string>
 
-#include "npu/core/npu/NpuVariables.h"
 #include "npu/core/npu/NPUException.h"
+#include "npu/core/npu/NpuVariables.h"
 #include "npu/core/npu/register/OptionsManager.h"
 
 namespace c10_npu {
@@ -54,31 +54,29 @@ void SetSocVersion(const char* const socVersion) {
   g_curSocVersion = curSocVersion;
 }
 
-const SocVersion& GetSocVersion()
-{
-    return g_curSocVersion;
+const SocVersion& GetSocVersion() {
+  return g_curSocVersion;
 }
 
-bool IsSupportInfNan()
-{
-    if (!c10_npu::option::OptionsManager::CheckInfNanModeEnable()) {
-        return false;
-    }
-    if (c10_npu::acl::IsExistGetCannAttribute()) {
-        const static bool supportInfNan = []() -> bool {
-            int enable = 0;
-            NPU_CHECK_ERROR(c10_npu::acl::AclGetCannAttribute(ACL_CANN_ATTR_INF_NAN, &enable));
-            return enable != 0;
-        }();
-        return supportInfNan;
-    }
-    return ((GetSocVersion() >= SocVersion::Ascend910B1) && (GetSocVersion() < SocVersion::Ascend310B1)) ||
-        (GetSocVersion() >= SocVersion::Ascend910C1);
+bool IsSupportInfNan() {
+  if (!c10_npu::option::OptionsManager::CheckInfNanModeEnable()) {
+    return false;
+  }
+  if (c10_npu::acl::IsExistGetCannAttribute()) {
+    const static bool supportInfNan = []() -> bool {
+      int enable = 0;
+      NPU_CHECK_ERROR(
+          c10_npu::acl::AclGetCannAttribute(ACL_CANN_ATTR_INF_NAN, &enable));
+      return enable != 0;
+    }();
+    return supportInfNan;
+  }
+  return ((GetSocVersion() >= SocVersion::Ascend910B1) &&
+          (GetSocVersion() < SocVersion::Ascend310B1)) ||
+      (GetSocVersion() >= SocVersion::Ascend910C1);
 }
 
-bool IsBF16Supported()
-{
-    return GetSocVersion() >= SocVersion::Ascend910B1;
+bool IsBF16Supported() {
+  return GetSocVersion() >= SocVersion::Ascend910B1;
 }
-}  // namespace c10_npu
-
+} // namespace c10_npu

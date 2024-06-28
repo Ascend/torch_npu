@@ -1,6 +1,6 @@
-#include <c10d/default_comm_hooks.hpp>
 #include <c10/core/ScalarType.h>
 #include <c10/util/Exception.h>
+#include <c10d/default_comm_hooks.hpp>
 
 #include <c10d/ProcessGroup.hpp>
 #include <c10d/comm.hpp>
@@ -31,14 +31,15 @@ c10::intrusive_ptr<c10::ivalue::Future> FP16CompressCommHook::runHook(
     auto result = allreduce_fut.value();
     TORCH_INTERNAL_ASSERT(
         result.isTensorList(),
-        "ProcessGroup::allreduce should return TensorList", DIST_ERROR(ErrCode::INTERNAL));
+        "ProcessGroup::allreduce should return TensorList",
+        DIST_ERROR(ErrCode::INTERNAL));
 
     auto reduce_tensor = result.toTensorVector()[0];
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
         reduce_tensor.scalar_type() == at::ScalarType::Half,
         "Expected reduced tensor to be fp16 in FP16CompressHook, but got type ",
-        reduce_tensor.scalar_type(), DIST_ERROR(ErrCode::TYPE)
-    );
+        reduce_tensor.scalar_type(),
+        DIST_ERROR(ErrCode::TYPE));
     decompressed_tensor.copy_(reduce_tensor);
     return c10::IValue(decompressed_tensor);
   };
@@ -46,7 +47,8 @@ c10::intrusive_ptr<c10::ivalue::Future> FP16CompressCommHook::runHook(
   return allreduce_fut->then(decompress, allreduce_fut->elementType());
 }
 
-c10::intrusive_ptr<c10::ivalue::Future> _AllReduceBySumCommHook::runHook(GradBucket& bucket) {
+c10::intrusive_ptr<c10::ivalue::Future> _AllReduceBySumCommHook::runHook(
+    GradBucket& bucket) {
   std::vector<at::Tensor> tensors = {bucket.getBufferRef()};
   return state_->allreduce(tensors)->getFuture();
 }

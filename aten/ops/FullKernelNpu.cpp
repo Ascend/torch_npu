@@ -1,18 +1,17 @@
 #include <ATen/NamedTensorUtils.h>
 
-#include "npu/framework/utils/OpAdapter.h"
-#include "npu/framework/utils/CalcuOpUtil.h"
 #include "aten/NPUNativeFunctions.h"
+#include "npu/framework/utils/CalcuOpUtil.h"
+#include "npu/framework/utils/OpAdapter.h"
 
 namespace at_npu {
 namespace native {
 
-at::Tensor& NPUNativeFunctions::full_out(at::IntArrayRef size, const at::Scalar& fill_value, at::Tensor& out) {
-  OpPreparation::CheckOut(
-      {},
-      out,
-      out,
-      size);
+at::Tensor& NPUNativeFunctions::full_out(
+    at::IntArrayRef size,
+    const at::Scalar& fill_value,
+    at::Tensor& out) {
+  OpPreparation::CheckOut({}, out, out, size);
   out.fill_(fill_value);
   return out;
 }
@@ -25,26 +24,27 @@ at::Tensor NPUNativeFunctions::full(
     c10::optional<at::Layout> layout_opt,
     c10::optional<at::Device> device_opt,
     c10::optional<bool> pin_memory_opt) {
-    c10::TensorOptions option = c10::TensorOptions().dtype(dtype_opt)
-                                                    .device(device_opt)
-                                                    .layout(layout_opt)
-                                                    .pinned_memory(pin_memory_opt);
-    at::Tensor result = OpPreparation::ApplyTensorWithSizes(size, option);
+  c10::TensorOptions option = c10::TensorOptions()
+                                  .dtype(dtype_opt)
+                                  .device(device_opt)
+                                  .layout(layout_opt)
+                                  .pinned_memory(pin_memory_opt);
+  at::Tensor result = OpPreparation::ApplyTensorWithSizes(size, option);
 
-    if (!dtype_opt.has_value()) {
-        if (fill_value.isBoolean()) {
-            option = option.dtype(at::kBool);
-        } else if (fill_value.isIntegral(false)) {
-            option = option.dtype(at::kLong);
-        } else {
-            option = option.dtype(c10::get_default_dtype());
-        }
+  if (!dtype_opt.has_value()) {
+    if (fill_value.isBoolean()) {
+      option = option.dtype(at::kBool);
+    } else if (fill_value.isIntegral(false)) {
+      option = option.dtype(at::kLong);
+    } else {
+      option = option.dtype(c10::get_default_dtype());
     }
+  }
 
-    auto maybe_name = names.value_or(at::ArrayRef<at::Dimname>{});
-    at::namedinference::propagate_names_if_nonempty(result, maybe_name);
-    return result.fill_(fill_value);
+  auto maybe_name = names.value_or(at::ArrayRef<at::Dimname>{});
+  at::namedinference::propagate_names_if_nonempty(result, maybe_name);
+  return result.fill_(fill_value);
 }
 
-}
-}
+} // namespace native
+} // namespace at_npu

@@ -19,7 +19,7 @@
 namespace at_npu {
 namespace native {
 
-void ForceAclnn::RegisterOp(const std::string &list) {
+void ForceAclnn::RegisterOp(const std::string& list) {
   if (list.empty()) {
     return;
   }
@@ -44,7 +44,7 @@ void ForceAclnn::RegisterOp(const std::string &list) {
   return;
 }
 
-bool ForceAclnn::IsForceAclnnOp(const std::string &op_name) const {
+bool ForceAclnn::IsForceAclnnOp(const std::string& op_name) const {
   bool ret = (force_aclnn_op_list_.find(op_name) != force_aclnn_op_list_.end());
   return ret;
 }

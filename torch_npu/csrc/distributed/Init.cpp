@@ -1,30 +1,29 @@
 #include <deque>
 
-#include <torch/custom_class.h>
-#include <torch/csrc/python_headers.h>
 #include <c10/util/intrusive_ptr.h>
 #include <c10/util/irange.h>
 #include <c10d/ProcessGroup.hpp>
-#include <c10d/comm.hpp>
 #include <c10d/Work.hpp>
+#include <c10d/comm.hpp>
 #include <pybind11/chrono.h>
+#include <torch/csrc/python_headers.h>
+#include <torch/custom_class.h>
 
-#include <torch/csrc/Exceptions.h>
 #include <ATen/core/functional.h>
+#include <torch/csrc/Exceptions.h>
+#include <torch/csrc/distributed/c10d/python_comm_hook.h>
 #include <torch/csrc/jit/python/pybind_utils.h>
 #include <torch/csrc/utils/object_ptr.h>
 #include <torch/csrc/utils/pybind.h>
 #include <torch/csrc/utils/tensor_flatten.h>
-#include <torch/csrc/distributed/c10d/python_comm_hook.h>
 
-#include "torch_npu/csrc/distributed/rpc/init.h"
+#include "aten/CustomFunctions.h"
+#include "aten/NPUNativeFunctions.h"
+#include "npu/core/NPUBridge.h"
+#include "torch_npu/csrc/distributed/Init.h"
 #include "torch_npu/csrc/distributed/ProcessGroupHCCL.hpp"
 #include "torch_npu/csrc/distributed/reducer.hpp"
-#include "torch_npu/csrc/distributed/Init.h"
-#include "aten/NPUNativeFunctions.h"
-#include "aten/CustomFunctions.h"
-#include "npu/core/NPUBridge.h"
-
+#include "torch_npu/csrc/distributed/rpc/init.h"
 
 namespace {
 
@@ -33,7 +32,7 @@ template <typename T>
 class IntrusivePtrNoGilDestructor {
   c10::intrusive_ptr<T> impl_;
 
-public:
+ public:
   IntrusivePtrNoGilDestructor() = default;
   IntrusivePtrNoGilDestructor(const IntrusivePtrNoGilDestructor&) = default;
   IntrusivePtrNoGilDestructor(IntrusivePtrNoGilDestructor&&) = default;
@@ -76,7 +75,6 @@ public:
 
 PYBIND11_DECLARE_HOLDER_TYPE(T, IntrusivePtrNoGilDestructor<T>, true);
 
-
 namespace torch_npu {
 namespace distributed {
 
@@ -90,12 +88,13 @@ template <typename T>
 using intrusive_ptr_no_gil_destructor_class_ =
     py::class_<T, IntrusivePtrNoGilDestructor<T>>;
 
-
 class BroadcastWork {
-public:
+ public:
   inline std::vector<at::Tensor> cast_tensors(at::TensorList tensors) {
-    static auto cast_back_to_ori_format = [](const at::Tensor &t) {
-      return at_npu::native::custom_ops::npu_format_cast(t, torch_npu::NPUBridge::GetNpuStorageImpl(t)->npu_desc_.origin_format_);
+    static auto cast_back_to_ori_format = [](const at::Tensor& t) {
+      return at_npu::native::custom_ops::npu_format_cast(
+          t,
+          torch_npu::NPUBridge::GetNpuStorageImpl(t)->npu_desc_.origin_format_);
     };
     return c10::fmap(tensors, cast_back_to_ori_format);
   }
@@ -116,13 +115,15 @@ public:
     work_->wait();
     auto output_tensors = torch::utils::unflatten_dense_tensors(
         flat_tensor_.front(), cast_tensors_);
-    TORCH_INTERNAL_ASSERT(output_tensors.size() == bucket_tensors_.size(), DIST_ERROR(ErrCode::PARAM));
+    TORCH_INTERNAL_ASSERT(
+        output_tensors.size() == bucket_tensors_.size(),
+        DIST_ERROR(ErrCode::PARAM));
     for (const auto i : c10::irange(output_tensors.size())) {
       bucket_tensors_[i].copy_(output_tensors[i], true);
     }
   }
 
-protected:
+ protected:
   // The list of tensors to broadcast. They are guaranteed to be
   // placed on the same device and have the same dtype.
   std::vector<at::Tensor> bucket_tensors_;
@@ -136,8 +137,7 @@ protected:
   // because c10d::ProcessGroup::broadcast takes a vector argument.
   std::vector<at::Tensor> flat_tensor_;
 
-private:
-
+ private:
   // The broadcast work that is kicked off upon construction.
   c10::intrusive_ptr<c10d::Work> work_;
 };
@@ -202,211 +202,260 @@ PyObject* c10d_npu_init(PyObject* _unused, PyObject* noargs) {
     throw python_error();
   }
   auto torch_npu_C_m = py::handle(torch_npu_C_module).cast<py::module>();
-  
-  auto m =
-      torch_npu_C_m.def_submodule("_distributed_c10d", "distributed c10d bindings");
+
+  auto m = torch_npu_C_m.def_submodule(
+      "_distributed_c10d", "distributed c10d bindings");
   auto module = py::handle(m).cast<py::module>();
 
-  module.def("_compute_bucket_assignment_by_size",
-             [](const std::vector<at::Tensor>& tensors,
-             const std::vector<size_t>& bucket_size_limits,
-             const std::vector<bool>& expect_sparse_gradient,
-             const std::vector<int64_t>& tensor_indices,
-             const c10::optional<std::shared_ptr<::c10d::Logger>>& logger) {
-               if (logger.has_value()) {
-                 std::weak_ptr<::c10d::Logger> logger_weakref = logger.value();
-                 return ::c10d_npu::compute_bucket_assignment_by_size(tensors, bucket_size_limits, expect_sparse_gradient, tensor_indices, {logger_weakref});
-               } else {
-                 return ::c10d_npu::compute_bucket_assignment_by_size(tensors, bucket_size_limits, expect_sparse_gradient, tensor_indices, {});
-               }
-             },
-             py::arg("tensors"),
-             py::arg("bucket_size"),
-             py::arg("expect_sparse_gradient") = std::vector<bool>(),
-             py::arg("tensor_indices") = std::vector<int64_t>(),
-             py::arg("logger") = c10::optional<std::shared_ptr<::c10d::Logger>>{},
-             py::call_guard<py::gil_scoped_release>());
+  module.def(
+      "_compute_bucket_assignment_by_size",
+      [](const std::vector<at::Tensor>& tensors,
+         const std::vector<size_t>& bucket_size_limits,
+         const std::vector<bool>& expect_sparse_gradient,
+         const std::vector<int64_t>& tensor_indices,
+         const c10::optional<std::shared_ptr<::c10d::Logger>>& logger) {
+        if (logger.has_value()) {
+          std::weak_ptr<::c10d::Logger> logger_weakref = logger.value();
+          return ::c10d_npu::compute_bucket_assignment_by_size(
+              tensors,
+              bucket_size_limits,
+              expect_sparse_gradient,
+              tensor_indices,
+              {logger_weakref});
+        } else {
+          return ::c10d_npu::compute_bucket_assignment_by_size(
+              tensors,
+              bucket_size_limits,
+              expect_sparse_gradient,
+              tensor_indices,
+              {});
+        }
+      },
+      py::arg("tensors"),
+      py::arg("bucket_size"),
+      py::arg("expect_sparse_gradient") = std::vector<bool>(),
+      py::arg("tensor_indices") = std::vector<int64_t>(),
+      py::arg("logger") = c10::optional<std::shared_ptr<::c10d::Logger>>{},
+      py::call_guard<py::gil_scoped_release>());
 
-  module.def("_verify_params_across_processes",
-             [](const c10::intrusive_ptr<::c10d::ProcessGroup>& process_group,
-             const std::vector<at::Tensor>& params,
-             const c10::optional<std::shared_ptr<::c10d::Logger>>& logger) {
-               if (logger.has_value()) {
-                 std::weak_ptr<::c10d::Logger> logger_weakref = logger.value();
-                 c10d_npu::verify_params_across_processes(process_group, params, {logger_weakref});
-               } else {
-                 c10d_npu::verify_params_across_processes(process_group, params, {});
-               }
-             },
-             py::arg("process_group"),
-             py::arg("params"),
-             py::arg("logger") = c10::optional<std::shared_ptr<::c10d::Logger>>{},
-             py::call_guard<py::gil_scoped_release>());
+  module.def(
+      "_verify_params_across_processes",
+      [](const c10::intrusive_ptr<::c10d::ProcessGroup>& process_group,
+         const std::vector<at::Tensor>& params,
+         const c10::optional<std::shared_ptr<::c10d::Logger>>& logger) {
+        if (logger.has_value()) {
+          std::weak_ptr<::c10d::Logger> logger_weakref = logger.value();
+          c10d_npu::verify_params_across_processes(
+              process_group, params, {logger_weakref});
+        } else {
+          c10d_npu::verify_params_across_processes(process_group, params, {});
+        }
+      },
+      py::arg("process_group"),
+      py::arg("params"),
+      py::arg("logger") = c10::optional<std::shared_ptr<::c10d::Logger>>{},
+      py::call_guard<py::gil_scoped_release>());
 
   module
-      .def("_register_comm_hook",
-           &_register_comm_hook,
-           py::arg("reducer"),
-           py::arg("state"),
-           py::arg("comm_hook"),
-           py::call_guard<py::gil_scoped_release>())
-      .def("_register_builtin_comm_hook",
-           &_register_builtin_comm_hook,
-           py::arg("reducer"),
-           py::arg("comm_hook_type"));
+      .def(
+          "_register_comm_hook",
+          &_register_comm_hook,
+          py::arg("reducer"),
+          py::arg("state"),
+          py::arg("comm_hook"),
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "_register_builtin_comm_hook",
+          &_register_builtin_comm_hook,
+          py::arg("reducer"),
+          py::arg("comm_hook_type"));
 
-  module.def("_broadcast_coalesced",
-             // Define a lambda such that the pybind11 prototype can take a std::vector
-             // for the tensor list argument, but still pass it to the underlying
-             // function as a c10::ArrayRef.
-             [](c10::intrusive_ptr<::c10d::ProcessGroup> process_group,
-                 std::vector<at::Tensor> tensors, // NOLINT
-                 size_t buffer_size,
-                 int rank) {
-                 torch_npu::distributed::broadcast_coalesced(
-                     std::move(process_group), tensors, buffer_size, rank);
-             },
-             py::arg("process_group"),
-             py::arg("tensors"),
-             py::arg("buffer_size"),
-             // The source of truth rank to broadcast the tensors from.
-             py::arg("src") = 0,
-             py::call_guard<py::gil_scoped_release>());
+  module.def(
+      "_broadcast_coalesced",
+      // Define a lambda such that the pybind11 prototype can take a std::vector
+      // for the tensor list argument, but still pass it to the underlying
+      // function as a c10::ArrayRef.
+      [](c10::intrusive_ptr<::c10d::ProcessGroup> process_group,
+         std::vector<at::Tensor> tensors, // NOLINT
+         size_t buffer_size,
+         int rank) {
+        torch_npu::distributed::broadcast_coalesced(
+            std::move(process_group), tensors, buffer_size, rank);
+      },
+      py::arg("process_group"),
+      py::arg("tensors"),
+      py::arg("buffer_size"),
+      // The source of truth rank to broadcast the tensors from.
+      py::arg("src") = 0,
+      py::call_guard<py::gil_scoped_release>());
 
   shared_ptr_class_<c10d_npu::Reducer>(module, "Reducer")
-      .def(py::init<
-               std::vector<at::Tensor>,
-               std::vector<std::vector<size_t>>,
-               std::vector<size_t>,
-               c10::intrusive_ptr<::c10d::ProcessGroup>,
-               std::vector<bool>,
-               int64_t,
-               bool,
-               bool,
-               std::unordered_map<size_t, std::string>,
-               int64_t>(),
-           py::arg("params"),
-           py::arg("bucket_indices"),
-           py::arg("per_bucket_size_limits"),
-           py::arg("process_group"),
-           py::arg("expect_sparse_gradients") = std::vector<bool>(),
-           py::arg("bucket_bytes_cap") = ::c10d::kDefaultBucketBytesCap,
-           py::arg("find_unused_parameters") = false,
-           py::arg("gradient_as_bucket_view") = false,
-           py::arg("param_to_name_mapping") =
+      .def(
+          py::init<
+              std::vector<at::Tensor>,
+              std::vector<std::vector<size_t>>,
+              std::vector<size_t>,
+              c10::intrusive_ptr<::c10d::ProcessGroup>,
+              std::vector<bool>,
+              int64_t,
+              bool,
+              bool,
+              std::unordered_map<size_t, std::string>,
+              int64_t>(),
+          py::arg("params"),
+          py::arg("bucket_indices"),
+          py::arg("per_bucket_size_limits"),
+          py::arg("process_group"),
+          py::arg("expect_sparse_gradients") = std::vector<bool>(),
+          py::arg("bucket_bytes_cap") = ::c10d::kDefaultBucketBytesCap,
+          py::arg("find_unused_parameters") = false,
+          py::arg("gradient_as_bucket_view") = false,
+          py::arg("param_to_name_mapping") =
               std::unordered_map<size_t, std::string>(),
-           py::arg("first_bucket_bytes_cap") = ::c10d::kDefaultFirstBucketBytes,
-           py::call_guard<py::gil_scoped_release>())
-      .def("prepare_for_forward",
-           &c10d_npu::Reducer::prepare_for_forward,
-           py::call_guard<py::gil_scoped_release>())
-      .def("prepare_for_backward",
-           &c10d_npu::Reducer::prepare_for_backward,
-           py::call_guard<py::gil_scoped_release>())
-      .def("prepare_for_backward",
-           [](c10d_npu::Reducer& reducer, const at::Tensor& output)
-               -> void { reducer.prepare_for_backward({output}); },
-           py::call_guard<py::gil_scoped_release>())
-      .def("get_backward_stats", &c10d_npu::Reducer::get_backward_stats)
-      .def("_install_post_backward_futures", [](::c10d_npu::Reducer& reducer, const std::vector<std::shared_ptr<torch::jit::PythonFutureWrapper>>& futs) {
-              c10::List<c10::intrusive_ptr<c10::ivalue::Future>> futures(c10::FutureType::create(c10::TensorType::get()));
-              for (const auto &fut : futs) {
-              futures.push_back(fut->fut);
-              }
-              reducer.install_futures(std::move(futures));
+          py::arg("first_bucket_bytes_cap") = ::c10d::kDefaultFirstBucketBytes,
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "prepare_for_forward",
+          &c10d_npu::Reducer::prepare_for_forward,
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "prepare_for_backward",
+          &c10d_npu::Reducer::prepare_for_backward,
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "prepare_for_backward",
+          [](c10d_npu::Reducer& reducer, const at::Tensor& output) -> void {
+            reducer.prepare_for_backward({output});
           },
-           py::call_guard<py::gil_scoped_release>())
-      .def("_rebuild_buckets",
-           &::c10d_npu::Reducer::rebuild_buckets,
-           py::call_guard<py::gil_scoped_release>())
-      .def("_get_zeros_like_grad_buckets",
-           [](::c10d_npu::Reducer& reducer) {
-             return reducer.get_grad_buckets(true);
-           },
-           py::call_guard<py::gil_scoped_release>())
-      .def("_push_all_rebuilt_params",
-           &::c10d_npu::Reducer::push_rebuilt_params_for_all_indices,
-           py::call_guard<py::gil_scoped_release>())
-      .def("_set_forward_pass_work_handle",
-           &::c10d_npu::Reducer::set_forward_pass_work_handle,
-           py::call_guard<py::gil_scoped_release>())
-      .def("_get_local_used_map",
-           &::c10d_npu::Reducer::get_local_used_map_on_device)
-      .def("_set_ddp_runtime_logging_sample_rate",
-           &::c10d_npu::Reducer::set_ddp_runtime_logging_sample_rate,
-           py::arg("sample_rate"),
-           py::call_guard<py::gil_scoped_release>())
-      .def("_set_static_graph",
-           &::c10d_npu::Reducer::set_static_graph,
-           py::call_guard<py::gil_scoped_release>())
-      .def("_ddp_graph_static",
-           &::c10d_npu::Reducer::ddp_graph_static,
-           py::call_guard<py::gil_scoped_release>())
-      .def("_delay_all_reduce",
-           &::c10d_npu::Reducer::delay_all_reduce,
-           py::call_guard<py::gil_scoped_release>())
-      .def("_run_comm_hook",
-           [](::c10d_npu::Reducer& reducer, ::c10d::GradBucket& bucket)
-               -> std::shared_ptr<torch::jit::PythonFutureWrapper> {
-             c10::intrusive_ptr<c10::ivalue::Future> fut =
-                 reducer.run_comm_hook(bucket);
-             return std::make_shared<torch::jit::PythonFutureWrapper>(fut);
-           },
-           py::call_guard<py::gil_scoped_release>())
-      .def("set_logger",
-           [](::c10d_npu::Reducer& reducer,
-              const std::shared_ptr<::c10d::Logger> logger) {
-             std::weak_ptr<::c10d::Logger> logger_weakref = logger;
-             reducer.set_logger(logger_weakref);
-           });
+          py::call_guard<py::gil_scoped_release>())
+      .def("get_backward_stats", &c10d_npu::Reducer::get_backward_stats)
+      .def(
+          "_install_post_backward_futures",
+          [](::c10d_npu::Reducer& reducer,
+             const std::vector<
+                 std::shared_ptr<torch::jit::PythonFutureWrapper>>& futs) {
+            c10::List<c10::intrusive_ptr<c10::ivalue::Future>> futures(
+                c10::FutureType::create(c10::TensorType::get()));
+            for (const auto& fut : futs) {
+              futures.push_back(fut->fut);
+            }
+            reducer.install_futures(std::move(futures));
+          },
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "_rebuild_buckets",
+          &::c10d_npu::Reducer::rebuild_buckets,
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "_get_zeros_like_grad_buckets",
+          [](::c10d_npu::Reducer& reducer) {
+            return reducer.get_grad_buckets(true);
+          },
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "_push_all_rebuilt_params",
+          &::c10d_npu::Reducer::push_rebuilt_params_for_all_indices,
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "_set_forward_pass_work_handle",
+          &::c10d_npu::Reducer::set_forward_pass_work_handle,
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "_get_local_used_map",
+          &::c10d_npu::Reducer::get_local_used_map_on_device)
+      .def(
+          "_set_ddp_runtime_logging_sample_rate",
+          &::c10d_npu::Reducer::set_ddp_runtime_logging_sample_rate,
+          py::arg("sample_rate"),
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "_set_static_graph",
+          &::c10d_npu::Reducer::set_static_graph,
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "_ddp_graph_static",
+          &::c10d_npu::Reducer::ddp_graph_static,
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "_delay_all_reduce",
+          &::c10d_npu::Reducer::delay_all_reduce,
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "_run_comm_hook",
+          [](::c10d_npu::Reducer& reducer, ::c10d::GradBucket& bucket)
+              -> std::shared_ptr<torch::jit::PythonFutureWrapper> {
+            c10::intrusive_ptr<c10::ivalue::Future> fut =
+                reducer.run_comm_hook(bucket);
+            return std::make_shared<torch::jit::PythonFutureWrapper>(fut);
+          },
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "set_logger",
+          [](::c10d_npu::Reducer& reducer,
+             const std::shared_ptr<::c10d::Logger> logger) {
+            std::weak_ptr<::c10d::Logger> logger_weakref = logger;
+            reducer.set_logger(logger_weakref);
+          });
 
   py::module_ dist = py::module_::import("torch._C._distributed_c10d");
-  auto processGroupHCCL = intrusive_ptr_no_gil_destructor_class_<::c10d_npu::ProcessGroupHCCL>(
-      module, "ProcessGroupHCCL", dist.attr("Backend"))
-      .def(py::init<const c10::intrusive_ptr<::c10d::Store>&,
-               int,
-               int,
-               c10::intrusive_ptr<::c10d_npu::ProcessGroupHCCL::Options>>(),
-           py::call_guard<py::gil_scoped_release>())
-      .def(py::init([](const c10::intrusive_ptr<::c10d::Store>& store,
-               int rank,
-               int size,
-               const std::chrono::milliseconds& timeout) {
-               auto options = ::c10d_npu::ProcessGroupHCCL::Options::create();
-                   options->is_high_priority_stream = false;
-                   options->timeout = timeout;
-                   return c10::make_intrusive<::c10d_npu::ProcessGroupHCCL>(
-                       store, rank, size, options);
+  auto processGroupHCCL =
+      intrusive_ptr_no_gil_destructor_class_<::c10d_npu::ProcessGroupHCCL>(
+          module, "ProcessGroupHCCL", dist.attr("Backend"))
+          .def(
+              py::init<
+                  const c10::intrusive_ptr<::c10d::Store>&,
+                  int,
+                  int,
+                  c10::intrusive_ptr<::c10d_npu::ProcessGroupHCCL::Options>>(),
+              py::call_guard<py::gil_scoped_release>())
+          .def(
+              py::init([](const c10::intrusive_ptr<::c10d::Store>& store,
+                          int rank,
+                          int size,
+                          const std::chrono::milliseconds& timeout) {
+                auto options = ::c10d_npu::ProcessGroupHCCL::Options::create();
+                options->is_high_priority_stream = false;
+                options->timeout = timeout;
+                return c10::make_intrusive<::c10d_npu::ProcessGroupHCCL>(
+                    store, rank, size, options);
               }),
-           py::arg("store"),
-           py::arg("rank"),
-           py::arg("size"),
-           py::arg("timeout") = kProcessGroupDefaultTimeout,
-           py::call_guard<py::gil_scoped_release>())
-      .def("get_hccl_comm", &::c10d_npu::ProcessGroupHCCL::getHcclComm)
-      .def("get_hccl_comm_name", &::c10d_npu::ProcessGroupHCCL::getHcclCommName)
-      .def("_get_stream_id", &::c10d_npu::ProcessGroupHCCL::getStreamId,
-           py::arg("p2p") = false)
-      .def_property_readonly("options", &::c10d_npu::ProcessGroupHCCL::getOptions)
-      .def("batch_isend_irecv",
-           [](::c10d_npu::ProcessGroupHCCL &pg, std::vector<std::string> &op_type,
-               std::vector<at::Tensor> &tensors,
-               std::vector<uint32_t> remote_rank_list)
-               -> c10::intrusive_ptr<c10d::Work> {
-               return pg.batch_isend_irecv(op_type, tensors, remote_rank_list);
-           },
-           py::call_guard<py::gil_scoped_release>());
+              py::arg("store"),
+              py::arg("rank"),
+              py::arg("size"),
+              py::arg("timeout") = kProcessGroupDefaultTimeout,
+              py::call_guard<py::gil_scoped_release>())
+          .def("get_hccl_comm", &::c10d_npu::ProcessGroupHCCL::getHcclComm)
+          .def(
+              "get_hccl_comm_name",
+              &::c10d_npu::ProcessGroupHCCL::getHcclCommName)
+          .def(
+              "_get_stream_id",
+              &::c10d_npu::ProcessGroupHCCL::getStreamId,
+              py::arg("p2p") = false)
+          .def_property_readonly(
+              "options", &::c10d_npu::ProcessGroupHCCL::getOptions)
+          .def(
+              "batch_isend_irecv",
+              [](::c10d_npu::ProcessGroupHCCL& pg,
+                 std::vector<std::string>& op_type,
+                 std::vector<at::Tensor>& tensors,
+                 std::vector<uint32_t> remote_rank_list)
+                  -> c10::intrusive_ptr<c10d::Work> {
+                return pg.batch_isend_irecv(op_type, tensors, remote_rank_list);
+              },
+              py::call_guard<py::gil_scoped_release>());
 
   intrusive_ptr_class_<::c10d_npu::ProcessGroupHCCL::Options>(
-      processGroupHCCL,
-      "Options",
-      dist.attr("ProcessGroup").attr("Options"))
+      processGroupHCCL, "Options", dist.attr("ProcessGroup").attr("Options"))
       .def(py::init<>())
-      .def_readwrite("op_timeout", &::c10d_npu::ProcessGroupHCCL::Options::opTimeout)
-      .def_readwrite("is_high_priority_stream",
-                     &::c10d_npu::ProcessGroupHCCL::Options::is_high_priority_stream)
-      .def_readwrite("global_ranks_in_group",
-                     &::c10d_npu::ProcessGroupHCCL::Options::global_ranks_in_group);
+      .def_readwrite(
+          "op_timeout", &::c10d_npu::ProcessGroupHCCL::Options::opTimeout)
+      .def_readwrite(
+          "is_high_priority_stream",
+          &::c10d_npu::ProcessGroupHCCL::Options::is_high_priority_stream)
+      .def_readwrite(
+          "global_ranks_in_group",
+          &::c10d_npu::ProcessGroupHCCL::Options::global_ranks_in_group);
 
   Py_RETURN_TRUE;
 }

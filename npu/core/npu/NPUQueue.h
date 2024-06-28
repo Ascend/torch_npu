@@ -1,13 +1,13 @@
 #pragma once
 
+#include <atomic>
+#include <mutex>
 #include <string>
 #include <thread>
-#include <mutex>
-#include <atomic>
 
 #include <c10/core/Device.h>
-#include "npu/core/npu/npu_log.h"
 #include <third_party/acl/inc/acl/acl_op.h>
+#include "npu/core/npu/npu_log.h"
 
 namespace c10_npu {
 
@@ -28,7 +28,7 @@ enum RepoStatus {
 const int N = 32;
 
 class ReleaseQueue {
-public:
+ public:
   ReleaseQueue() = default;
   ~ReleaseQueue();
   void PushToReleaseQueue(void* cur_paras);
@@ -36,19 +36,21 @@ public:
   void InitReleaseQueue();
   RepoStatus GetStatus() const;
 
-private:
-  inline bool IsEmptyQueue() {return read_idx.idx == write_idx.idx;};
+ private:
+  inline bool IsEmptyQueue() {
+    return read_idx.idx == write_idx.idx;
+  };
   bool IsFullQueue() const;
   bool WriteToReleaseQueue(void* cur_paras);
   bool ReadFromReleaseQueue();
   void SetStatus(RepoStatus desired);
   void ChangeStatus(RepoStatus expected, RepoStatus desired);
 
-private:
+ private:
   void* datas = nullptr;
   std::thread releaser;
 
-private:
+ private:
   sring_idx read_idx;
   sring_idx write_idx;
   std::atomic<RepoStatus> repo_status;
@@ -56,7 +58,7 @@ private:
 };
 
 class NPUQueueBase {
-public:
+ public:
   virtual ~NPUQueueBase() {}
   virtual RepoStatus GetStatus() const = 0;
   virtual void SetStatus(RepoStatus desired) = 0;
@@ -70,13 +72,13 @@ public:
 };
 
 class NPUQueueFactoryBase {
-public:
+ public:
   virtual NPUQueueBase* create() = 0;
   virtual ~NPUQueueFactoryBase() {}
 };
 
 class Repository : public NPUQueueBase {
-public:
+ public:
   Repository() = default;
   ~Repository() override;
   RepoStatus GetStatus() const override;
@@ -89,18 +91,28 @@ public:
   bool CheckInit() const override;
   std::string GetPara() override;
 
-private:
+ private:
   void ReleaseResource();
-  inline bool IsEmptyQueue() {return read_idx.idx == write_idx.idx;};
+  inline bool IsEmptyQueue() {
+    return read_idx.idx == write_idx.idx;
+  };
   bool IsFullQueue() const;
-  void SetWriteWorking(bool isWorking) {write_idx.working = isWorking;};
-  void SetReadWorking(bool isWorking) {read_idx.working = isWorking;};
-  bool IsWriteWorking() const {return write_idx.working;};
-  bool IsReadWorking() const {return read_idx.working;};
+  void SetWriteWorking(bool isWorking) {
+    write_idx.working = isWorking;
+  };
+  void SetReadWorking(bool isWorking) {
+    read_idx.working = isWorking;
+  };
+  bool IsWriteWorking() const {
+    return write_idx.working;
+  };
+  bool IsReadWorking() const {
+    return read_idx.working;
+  };
   bool WriteQueue(void* cur_paras);
   bool ReadQueue();
 
-private:
+ private:
   void* datas = nullptr;
   std::thread consumer;
   int efd_read;
@@ -108,7 +120,7 @@ private:
   int efd_empty;
   c10::DeviceIndex device_idx;
 
-private:
+ private:
   sring_idx read_idx;
   sring_idx write_idx;
   std::atomic<RepoStatus> repo_status;
@@ -122,25 +134,38 @@ private:
   ReleaseQueue releaseQueue;
 };
 
-using ACL_EXEC_FUNC     = std::function<int(void*)>;
-using ACL_COPY_FUNC     = std::function<void(void*, void*)>;
-using ACL_RELEASE_FUNC  = std::function<void(void*, ReleaseQueue&)>;
-using ACL_NEW_FUNC      = std::function<void*(int, int&)>;
-using ACL_DELETE_FUNC   = std::function<void(void*)>;
+using ACL_EXEC_FUNC = std::function<int(void*)>;
+using ACL_COPY_FUNC = std::function<void(void*, void*)>;
+using ACL_RELEASE_FUNC = std::function<void(void*, ReleaseQueue&)>;
+using ACL_NEW_FUNC = std::function<void*(int, int&)>;
+using ACL_DELETE_FUNC = std::function<void(void*)>;
 using ACL_COPY_RELEASE_PARM_FUNC = std::function<void(void*, void*)>;
 using ACL_RELEASE_PARAM_FUNC = std::function<void(void*)>;
 
 namespace register_queue_cb {
 class NPUCallBackRegisterBuilder {
-public:
-  NPUCallBackRegisterBuilder(const ACL_EXEC_FUNC& execF, const ACL_COPY_FUNC& copyF,
-    const ACL_RELEASE_FUNC& releaseF, const ACL_NEW_FUNC& newF, const ACL_DELETE_FUNC& deleteF,
-    const ACL_COPY_RELEASE_PARM_FUNC& copyReleaseParamF, const ACL_RELEASE_PARAM_FUNC& releaseParamF);
+ public:
+  NPUCallBackRegisterBuilder(
+      const ACL_EXEC_FUNC& execF,
+      const ACL_COPY_FUNC& copyF,
+      const ACL_RELEASE_FUNC& releaseF,
+      const ACL_NEW_FUNC& newF,
+      const ACL_DELETE_FUNC& deleteF,
+      const ACL_COPY_RELEASE_PARM_FUNC& copyReleaseParamF,
+      const ACL_RELEASE_PARAM_FUNC& releaseParamF);
   ~NPUCallBackRegisterBuilder() {}
 };
 } // namespace register_queue_cb
 
-#define REGISTER_QUEUE_FUNC(execF, copyF, releaseF, newF, deleteF, copyReleaseParamF, releaseParamF)  \
-    static ::c10_npu::register_queue_cb::NPUCallBackRegisterBuilder                     \
-        register_queue_func_builder(execF, copyF, releaseF, newF, deleteF, copyReleaseParamF, releaseParamF);
+#define REGISTER_QUEUE_FUNC(                                                 \
+    execF, copyF, releaseF, newF, deleteF, copyReleaseParamF, releaseParamF) \
+  static ::c10_npu::register_queue_cb::NPUCallBackRegisterBuilder            \
+      register_queue_func_builder(                                           \
+          execF,                                                             \
+          copyF,                                                             \
+          releaseF,                                                          \
+          newF,                                                              \
+          deleteF,                                                           \
+          copyReleaseParamF,                                                 \
+          releaseParamF);
 } // namespace c10_npu

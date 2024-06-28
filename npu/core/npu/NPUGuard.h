@@ -66,7 +66,7 @@ struct NPUGuard {
     return guard_.current_device();
   }
 
-private:
+ private:
   /// The guard for the current device.
   c10::impl::InlineDeviceGuard<c10_npu::impl::NPUGuardImpl> guard_;
 };
@@ -78,7 +78,8 @@ struct OptionalNPUGuard {
   explicit OptionalNPUGuard() : guard_() {}
 
   /// Set the current NPU device to the passed Device, if it is not nullopt.
-  explicit OptionalNPUGuard(c10::optional<c10::Device> device_opt) : guard_(device_opt) {}
+  explicit OptionalNPUGuard(c10::optional<c10::Device> device_opt)
+      : guard_(device_opt) {}
 
   /// Set the current NPU device to the passed device index, if it is not
   /// nullopt
@@ -134,7 +135,7 @@ struct OptionalNPUGuard {
     guard_.reset();
   }
 
-private:
+ private:
   c10::impl::InlineOptionalDeviceGuard<impl::NPUGuardImpl> guard_;
 };
 
@@ -197,7 +198,7 @@ struct NPUStreamGuard {
     return guard_.original_device();
   }
 
-private:
+ private:
   c10::impl::InlineStreamGuard<c10_npu::impl::NPUGuardImpl> guard_;
 };
 
@@ -266,7 +267,7 @@ struct OptionalNPUStreamGuard {
     guard_.reset();
   }
 
-private:
+ private:
   c10::impl::InlineOptionalStreamGuard<c10_npu::impl::NPUGuardImpl> guard_;
 };
 
@@ -285,10 +286,11 @@ struct NPUMultiStreamGuard {
   // See Note [Move assignment for RAII guards is tricky]
   NPUMultiStreamGuard& operator=(NPUMultiStreamGuard&& other) = delete;
 
-private:
+ private:
   c10::impl::InlineMultiStreamGuard<c10_npu::impl::NPUGuardImpl> guard_;
 
-  static std::vector<c10::Stream> unwrapStreams(at::ArrayRef<NPUStream> NPUStreams) {
+  static std::vector<c10::Stream> unwrapStreams(
+      at::ArrayRef<NPUStream> NPUStreams) {
     std::vector<c10::Stream> streams;
     streams.reserve(NPUStreams.size());
     for (const NPUStream& NPUStream : NPUStreams) {

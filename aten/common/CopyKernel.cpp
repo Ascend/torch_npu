@@ -1,19 +1,19 @@
 #include <ATen/ATen.h>
 
-#include "op_plugin/OpInterface.h"
+#include "aten/CustomFunctions.h"
+#include "aten/NPUNativeFunctions.h"
+#include "aten/common/FormatCastHelper.h"
+#include "aten/common/InnerNpuNativeFunction.h"
 #include "npu/core/npu/NPUException.h"
 #include "npu/core/npu/NPUGuard.h"
 #include "npu/core/npu/NPUPeerToPeerAccess.h"
-#include "npu/framework/utils/CalcuOpUtil.h"
+#include "npu/core/npu/THNPUCachingHostAllocator.h"
 #include "npu/core/npu/register/OptionsManager.h"
-#include "npu/framework/contiguous/ContiguousOpt.h"
 #include "npu/framework/FormatHelper.h"
 #include "npu/framework/StorageDescHelper.h"
-#include "aten/common/FormatCastHelper.h"
-#include "aten/common/InnerNpuNativeFunction.h"
-#include "npu/core/npu/THNPUCachingHostAllocator.h"
-#include "aten/NPUNativeFunctions.h"
-#include "aten/CustomFunctions.h"
+#include "npu/framework/contiguous/ContiguousOpt.h"
+#include "npu/framework/utils/CalcuOpUtil.h"
+#include "op_plugin/OpInterface.h"
 
 namespace at_npu {
 namespace native {
@@ -33,7 +33,9 @@ bool is_same_format(const at::Tensor& a, const at::Tensor& b) {
   return true;
 }
 
-bool try_to_optimize_copy_with_any_format(at::Tensor& self, const at::Tensor& src) {
+bool try_to_optimize_copy_with_any_format(
+    at::Tensor& self,
+    const at::Tensor& src) {
   // Some Ops support inputs with 5HD/NZ format, Transdata is redundant
   // Record:
   // Op:Reshape; SliceD || Supportformat: 5HD/NZ
@@ -54,7 +56,10 @@ void copy_d2d_last_method(
 }
 
 // the dst and src are same format now
-void copy_d2d_dtype_format(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
+void copy_d2d_dtype_format(
+    at::Tensor& self,
+    const at::Tensor& src,
+    bool non_blocking) {
   // Note: Src & Self have the same format.
   if (try_to_optimize_copy_with_any_format(self, src)) {
     return;
@@ -79,30 +84,38 @@ void copy_d2d_dtype_format(at::Tensor& self, const at::Tensor& src, bool non_blo
 }
 
 void copy_d2d(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
-    c10_npu::NPUGuard guard(src.device());
-    // p2p enable and synchronize self stream
-    if (self.device().index() != src.device().index()) {
-        bool warning_flag = false;
-        NpuP2pCtrl::get_instance().get_p2p_access(src.device().index(), self.device().index(), warning_flag);
-        // In the same 'os', tensor can copy even if the enable fails
-        if (warning_flag) {
-            ASCEND_LOGW("p2p enable from %d to %d is fails", src.device().index(), self.device().index());
-        }
-        guard.set_device(self.device());
-        c10_npu::NPUStream dst_stream = c10_npu::getCurrentNPUStream(self.device().index());
-        NPU_CHECK_ERROR(c10_npu::acl::AclrtSynchronizeStreamWithTimeout(dst_stream));
-        guard.set_device(src.device());
+  c10_npu::NPUGuard guard(src.device());
+  // p2p enable and synchronize self stream
+  if (self.device().index() != src.device().index()) {
+    bool warning_flag = false;
+    NpuP2pCtrl::get_instance().get_p2p_access(
+        src.device().index(), self.device().index(), warning_flag);
+    // In the same 'os', tensor can copy even if the enable fails
+    if (warning_flag) {
+      ASCEND_LOGW(
+          "p2p enable from %d to %d is fails",
+          src.device().index(),
+          self.device().index());
     }
-    if (self.dtype() != src.dtype()) {
-        custom_ops::npu_dtype_cast_(self, src); // npu_dtype_cast_ will call copy function.
-        return;
-    }
-    copy_d2d_dtype(self, src, non_blocking);
-    // synchronize src stream for different devices copy
-    if (self.device().index() != src.device().index()) {
-        c10_npu::NPUStream copy_stream = c10_npu::getCurrentNPUStream();
-        NPU_CHECK_ERROR(c10_npu::acl::AclrtSynchronizeStreamWithTimeout(copy_stream));
-    }
+    guard.set_device(self.device());
+    c10_npu::NPUStream dst_stream =
+        c10_npu::getCurrentNPUStream(self.device().index());
+    NPU_CHECK_ERROR(
+        c10_npu::acl::AclrtSynchronizeStreamWithTimeout(dst_stream));
+    guard.set_device(src.device());
+  }
+  if (self.dtype() != src.dtype()) {
+    custom_ops::npu_dtype_cast_(
+        self, src); // npu_dtype_cast_ will call copy function.
+    return;
+  }
+  copy_d2d_dtype(self, src, non_blocking);
+  // synchronize src stream for different devices copy
+  if (self.device().index() != src.device().index()) {
+    c10_npu::NPUStream copy_stream = c10_npu::getCurrentNPUStream();
+    NPU_CHECK_ERROR(
+        c10_npu::acl::AclrtSynchronizeStreamWithTimeout(copy_stream));
+  }
 }
 
 // the format of dst and src is base format now
@@ -117,27 +130,35 @@ void copy_between_host_and_device(
   c10_npu::NPUStream stream = c10_npu::getCurrentNPUStream();
 
   if (non_blocking) {
-    auto ret = CalcuOpUtil::LaunchAsyncCopyTaskWithModeSwitch(dst, nbytes, src, nbytes, kind);
+    auto ret = CalcuOpUtil::LaunchAsyncCopyTaskWithModeSwitch(
+        dst, nbytes, src, nbytes, kind);
     NPU_CHECK_ERROR(ret);
     ASCEND_LOGD("non_blocking copy without StreamSynchronize.");
     void* ptr = torch_npu::utils::is_npu(dst) ? src.data_ptr() : dst.data_ptr();
-    NPU_CHECK_ERROR(THNPUCachingHostAllocator_recordEvent(ptr, stream), "aclrtSynchronizeStreamWithTimeout");
+    NPU_CHECK_ERROR(
+        THNPUCachingHostAllocator_recordEvent(ptr, stream),
+        "aclrtSynchronizeStreamWithTimeout");
   } else {
     aclError error = c10_npu::acl::AclrtSynchronizeStreamWithTimeout(stream);
     auto ret = CalcuOpUtil::AclrtMemcpyWithModeSwitch(
-        std::make_pair(dst.storage().unsafeGetStorageImpl(), dst.storage_offset() * dst.itemsize()),
+        std::make_pair(
+            dst.storage().unsafeGetStorageImpl(),
+            dst.storage_offset() * dst.itemsize()),
         nbytes,
-        std::make_pair(src.storage().unsafeGetStorageImpl(), src.storage_offset() * src.itemsize()),
+        std::make_pair(
+            src.storage().unsafeGetStorageImpl(),
+            src.storage_offset() * src.itemsize()),
         nbytes,
         kind);
     NPU_CHECK_ERROR(ret, "aclrtMemcpy");
     if (error != ACL_ERROR_NONE) {
       C10_NPU_SHOW_ERR_MSG();
       if (c10_npu::option::OptionsManager::IsResumeModeEnable()) {
-        TORCH_NPU_WARN("ACL stream synchronize failed, error code:", error,
-                       ". But in checkpoint-resume mode will not throw exceptions.");
-      }
-      else {
+        TORCH_NPU_WARN(
+            "ACL stream synchronize failed, error code:",
+            error,
+            ". But in checkpoint-resume mode will not throw exceptions.");
+      } else {
         AT_ERROR("ACL stream synchronize failed, error code:", error);
       }
     }
@@ -203,7 +224,10 @@ void copy_h2d_baseformat(
 }
 
 // the format of dst and src is baseformat now
-void copy_d2h_baseformat(at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
+void copy_d2h_baseformat(
+    at::Tensor& dst,
+    const at::Tensor& src,
+    bool non_blocking) {
   bool same_type = (src.dtype() == dst.dtype());
   bool same_size = (src.sizes() == dst.sizes());
   bool dst_is_contiguous = dst.is_contiguous();
@@ -226,24 +250,25 @@ void copy_d2h_baseformat(at::Tensor& dst, const at::Tensor& src, bool non_blocki
 }
 
 void copy_h2d(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
-    c10_npu::NPUGuard guard(self.device());
-    if (!FormatHelper::IsBaseFormatType(self)) {
-        at::Tensor dst = OpPreparation::ApplyTensorWithSizes(self.sizes(), self.options());
-        copy_h2d_baseformat(dst, src, non_blocking, true);
-        NPUNativeFunctions::npu_format_cast_(self, dst);
-        return;
-    }
-    copy_h2d_baseformat(self, src, non_blocking);
+  c10_npu::NPUGuard guard(self.device());
+  if (!FormatHelper::IsBaseFormatType(self)) {
+    at::Tensor dst =
+        OpPreparation::ApplyTensorWithSizes(self.sizes(), self.options());
+    copy_h2d_baseformat(dst, src, non_blocking, true);
+    NPUNativeFunctions::npu_format_cast_(self, dst);
+    return;
+  }
+  copy_h2d_baseformat(self, src, non_blocking);
 }
 
 void copy_d2h(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
-    c10_npu::NPUGuard guard(src.device());
-    if (!FormatHelper::IsBaseFormatType(src)) {
-        at::Tensor src_4D = FormatCastHelper::ApplyBaseFormatTensorBy(src);
-        copy_d2h_baseformat(self, src_4D, non_blocking);
-        return;
-    }
-    copy_d2h_baseformat(self, src, non_blocking);
+  c10_npu::NPUGuard guard(src.device());
+  if (!FormatHelper::IsBaseFormatType(src)) {
+    at::Tensor src_4D = FormatCastHelper::ApplyBaseFormatTensorBy(src);
+    copy_d2h_baseformat(self, src_4D, non_blocking);
+    return;
+  }
+  copy_d2h_baseformat(self, src, non_blocking);
 }
 } // namespace
 
@@ -271,49 +296,51 @@ bool can_use_memcpy(at::Tensor& dst, const at::Tensor& src) {
   return false;
 }
 
-at::Tensor copy_d2d_format_cast(at::Tensor& dst, const at::Tensor& src)
-{
-    string srcFormat = FormatHelper::GetFormatName(src);
-    string dstFormat = FormatHelper::GetFormatName(dst);
+at::Tensor copy_d2d_format_cast(at::Tensor& dst, const at::Tensor& src) {
+  string srcFormat = FormatHelper::GetFormatName(src);
+  string dstFormat = FormatHelper::GetFormatName(dst);
 
-    if (!FormatCastHelper::IsSameGroupType(src, dst)) {
-        bool res = FormatCastHelper::format_cast_between_group(dst, src, copy_d2d_format_cast);
-        if (!res) {
-            AT_ERROR("unsupport cast from ", srcFormat, " to ", dstFormat);
-        }
-    return dst;
+  if (!FormatCastHelper::IsSameGroupType(src, dst)) {
+    bool res = FormatCastHelper::format_cast_between_group(
+        dst, src, copy_d2d_format_cast);
+    if (!res) {
+      AT_ERROR("unsupport cast from ", srcFormat, " to ", dstFormat);
     }
-
-    OpCommand cmd;
-    cmd.Name("Identity")
-        .InputWithoutContiguous(src)
-        .Output(dst)
-        .Run();
     return dst;
+  }
+
+  OpCommand cmd;
+  cmd.Name("Identity").InputWithoutContiguous(src).Output(dst).Run();
+  return dst;
 }
 
 // the dst and src are same dtype now
-void copy_d2d_dtype(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
-    if (!is_same_format(self, src)) {
-        auto src_desc = torch_npu::NPUBridge::GetNpuStorageImpl(src)->npu_desc_;
-        if (src.is_contiguous() && FormatHelper::IsBaseFormatType(src) && src_desc.base_sizes_.size() == 1) {
-            StorageDescHelper::ReflushDescBySelf(src);
-            copy_d2d_format_cast(self, src);
-            torch_npu::NPUBridge::GetNpuStorageImpl(src)->npu_desc_ = std::move(src_desc);
-            return;
-        }
-        at::Tensor src_4D = FormatCastHelper::ApplyBaseFormatTensorBy(src);
-        // ApplyBaseFormatTensorBy is redundant for self tensor with base format.
-        if (FormatHelper::IsBaseFormatType(self)) {
-            copy_d2d_dtype_baseformat(self, src_4D, non_blocking);
-            return;
-        }
-        at::Tensor dst_4D = FormatCastHelper::ApplyBaseFormatTensorBy(self);
-        copy_d2d_dtype_baseformat(dst_4D, src_4D, non_blocking);
-        NPUNativeFunctions::npu_format_cast_(self, dst_4D);
-        return;
+void copy_d2d_dtype(
+    at::Tensor& self,
+    const at::Tensor& src,
+    bool non_blocking) {
+  if (!is_same_format(self, src)) {
+    auto src_desc = torch_npu::NPUBridge::GetNpuStorageImpl(src)->npu_desc_;
+    if (src.is_contiguous() && FormatHelper::IsBaseFormatType(src) &&
+        src_desc.base_sizes_.size() == 1) {
+      StorageDescHelper::ReflushDescBySelf(src);
+      copy_d2d_format_cast(self, src);
+      torch_npu::NPUBridge::GetNpuStorageImpl(src)->npu_desc_ =
+          std::move(src_desc);
+      return;
     }
-    copy_d2d_dtype_format(self, src, non_blocking);
+    at::Tensor src_4D = FormatCastHelper::ApplyBaseFormatTensorBy(src);
+    // ApplyBaseFormatTensorBy is redundant for self tensor with base format.
+    if (FormatHelper::IsBaseFormatType(self)) {
+      copy_d2d_dtype_baseformat(self, src_4D, non_blocking);
+      return;
+    }
+    at::Tensor dst_4D = FormatCastHelper::ApplyBaseFormatTensorBy(self);
+    copy_d2d_dtype_baseformat(dst_4D, src_4D, non_blocking);
+    NPUNativeFunctions::npu_format_cast_(self, dst_4D);
+    return;
+  }
+  copy_d2d_dtype_format(self, src, non_blocking);
 }
 
 // the dst and src are same format now
@@ -335,8 +362,10 @@ void copy_d2d_dtype_baseformat(
       return;
     } else {
       // General trans-contiguous method
-      RECORD_FUNCTION("contiguous_d_AsStrided", std::vector<c10::IValue>({src}));
-      op_plugin::npu_stride_copy_out(src, src.sizes(), src.strides(), src.storage_offset(), self);
+      RECORD_FUNCTION(
+          "contiguous_d_AsStrided", std::vector<c10::IValue>({src}));
+      op_plugin::npu_stride_copy_out(
+          src, src.sizes(), src.strides(), src.storage_offset(), self);
       return;
     }
   } else {
@@ -352,14 +381,19 @@ void copy_d2d_dtype_baseformat(
   copy_d2d_last_method(self, src, true, non_blocking);
 }
 
-bool try_to_optimize_copy_with_any_format(at::Tensor& self, const at::Tensor& src) {
+bool try_to_optimize_copy_with_any_format(
+    at::Tensor& self,
+    const at::Tensor& src) {
   // Some Ops support inputs with 5HD/NZ format, Transdata is redundant
   // Record:
   // Op:Reshape; SliceD || Supportformat: 5HD/NZ
   return TransContiguous::ContiguousOptimizeWithAnyFormat(self, src);
 }
 
-at::Tensor& NPUNativeFunctions::copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
+at::Tensor& NPUNativeFunctions::copy_(
+    at::Tensor& self,
+    const at::Tensor& src,
+    bool non_blocking) {
   if (self.numel() == 0) {
     return self;
   }

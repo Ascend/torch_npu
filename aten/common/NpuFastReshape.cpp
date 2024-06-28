@@ -1,8 +1,8 @@
+#include "aten/NPUNativeFunctions.h"
 #include "aten/common/InnerNpuNativeFunction.h"
 #include "npu/framework/FormatHelper.h"
 #include "npu/framework/InferFormat.h"
 #include "npu/framework/StorageDescHelper.h"
-#include "aten/NPUNativeFunctions.h"
 
 namespace at_npu {
 namespace native {
@@ -10,8 +10,8 @@ namespace native {
 void npu_fast_reshape_(at::Tensor& tensor) {
   /**
     [NOTE] For some reshape cases such as view, unsqueeze, squeeze, flatten,
-    storages of them remain unchanged. So we can refresh reshape tensor's metadata
-    to obtain matched tensor.
+    storages of them remain unchanged. So we can refresh reshape tensor's
+    metadata to obtain matched tensor.
     */
 
   // restriction 1

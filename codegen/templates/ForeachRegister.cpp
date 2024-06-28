@@ -13,4 +13,4 @@ TORCH_LIBRARY_IMPL(aten, PrivateUse1, m) {
   ${foreach_kernel}
 }
 
-}
+} // namespace

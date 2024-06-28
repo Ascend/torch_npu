@@ -1,10 +1,10 @@
 #pragma once
 
-#include <deque>
-#include <mutex>
 #include <c10/core/thread_pool.h>
 #include <c10/util/flat_hash_map.h>
 #include <third_party/acl/inc/acl/acl.h>
+#include <deque>
+#include <mutex>
 
 #include "npu/core/npu/NPUException.h"
 
@@ -13,7 +13,7 @@
 namespace c10_npu {
 
 class NPUEventManager {
-public:
+ public:
   static NPUEventManager& GetInstance();
   aclError QueryAndDestroyEvent();
   aclError LazyDestroy(aclrtEvent npu_event);
@@ -23,10 +23,10 @@ public:
   bool IsEventRecorded(aclrtEvent event);
   ~NPUEventManager() {}
 
-private:
+ private:
   void run(aclrtEvent event);
 
-private:
+ private:
   std::mutex event_queue_mutex_;
   NPUEventManager();
   std::deque<aclrtEvent> npu_events_;

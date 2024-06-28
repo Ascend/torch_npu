@@ -8,7 +8,7 @@ namespace torch_npu {
 namespace distributed {
 namespace rpc {
 
-PyObject *rpc_npu_init(PyObject *_unused, PyObject *noargs);
+PyObject* rpc_npu_init(PyObject* _unused, PyObject* noargs);
 
 }
 } // namespace distributed

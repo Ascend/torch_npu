@@ -1,31 +1,30 @@
 #include "torch_npu/csrc/distributed/HCCLUtils.hpp"
 
-
 namespace c10d_npu {
-std::string getHcclErrorDetailStr(HcclResult error, c10::optional<std::string> processGroupFailureReason)
-{
-    // Prioritize failure reason provided by PG HCCL first, as it can abort
-    // communicators when it encounters collective timeouts, etc.
-    if (processGroupFailureReason != c10::nullopt) {
-        return *processGroupFailureReason;
-    }
-    std::string interpret;
+std::string getHcclErrorDetailStr(
+    HcclResult error,
+    c10::optional<std::string> processGroupFailureReason) {
+  // Prioritize failure reason provided by PG HCCL first, as it can abort
+  // communicators when it encounters collective timeouts, etc.
+  if (processGroupFailureReason != c10::nullopt) {
+    return *processGroupFailureReason;
+  }
+  std::string interpret;
 
-    switch (error) {
-        case HCCL_E_REMOTE:
-            interpret =
-                "HCCL_E_REMOTE: A call failed possibly due to a network error or a remote process exiting prematurely.";
-            break;
-        default:
-            interpret = "Unknown HCCL error!";
-    }
-    return interpret;
+  switch (error) {
+    case HCCL_E_REMOTE:
+      interpret =
+          "HCCL_E_REMOTE: A call failed possibly due to a network error or a remote process exiting prematurely.";
+      break;
+    default:
+      interpret = "Unknown HCCL error!";
+  }
+  return interpret;
 }
 
-bool isFileExists(std::string& name)
-{
-    std::ifstream f(name.c_str());
-    return f.good();
+bool isFileExists(std::string& name) {
+  std::ifstream f(name.c_str());
+  return f.good();
 }
 
 // HCCL DataType mapping
@@ -55,24 +54,24 @@ std::map<HcclDataType, std::string> kHcclDataTypeToStringMap = {
 };
 
 // Helper function that gets the data type and issues error if not supported
-HcclDataType getHcclDataType(at::ScalarType type)
-{
-    try {
-        return kScalarTypeToHcclDataType.at(type);
-    } catch (std::out_of_range& e) {
-        throw std::runtime_error("Unsupported data type for HCCL process group" + DIST_ERROR(ErrCode::NOT_SUPPORT));
-    }
+HcclDataType getHcclDataType(at::ScalarType type) {
+  try {
+    return kScalarTypeToHcclDataType.at(type);
+  } catch (std::out_of_range& e) {
+    throw std::runtime_error(
+        "Unsupported data type for HCCL process group" +
+        DIST_ERROR(ErrCode::NOT_SUPPORT));
+  }
 }
 
-std::string getHcclDataTypeSerialString(HcclDataType type)
-{
-    const auto& iter = kHcclDataTypeToStringMap.find(type);
-    if (iter != kHcclDataTypeToStringMap.end()) {
-        return iter->second;
-    } else {
-        TORCH_NPU_WARN_ONCE("Can not serialize undefined hccl data type.");
-        return "";
-    }
+std::string getHcclDataTypeSerialString(HcclDataType type) {
+  const auto& iter = kHcclDataTypeToStringMap.find(type);
+  if (iter != kHcclDataTypeToStringMap.end()) {
+    return iter->second;
+  } else {
+    TORCH_NPU_WARN_ONCE("Can not serialize undefined hccl data type.");
+    return "";
+  }
 }
 
-}
+} // namespace c10d_npu

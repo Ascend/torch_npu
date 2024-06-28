@@ -1,11 +1,11 @@
 #pragma once
 
-#include <unistd.h>
-#include <sys/stat.h>
-#include <linux/limits.h>
-#include <libgen.h>
 #include <fcntl.h>
+#include <libgen.h>
+#include <linux/limits.h>
+#include <sys/stat.h>
 #include <sys/syscall.h>
+#include <unistd.h>
 
 #include <stdint.h>
 
@@ -16,22 +16,22 @@ namespace torch_npu {
 namespace toolkit {
 namespace profiler {
 class Utils {
-public:
-  static bool IsFileExist(const std::string &path) {
+ public:
+  static bool IsFileExist(const std::string& path) {
     if (path.empty() || path.size() > PATH_MAX) {
       return false;
     }
     return (access(path.c_str(), F_OK) == 0) ? true : false;
   }
 
-  static bool IsFileWritable(const std::string &path) {
+  static bool IsFileWritable(const std::string& path) {
     if (path.empty() || path.size() > PATH_MAX) {
       return false;
     }
     return (access(path.c_str(), W_OK) == 0) ? true : false;
   }
 
-  static bool IsDir(const std::string &path) {
+  static bool IsDir(const std::string& path) {
     if (path.empty() || path.size() > PATH_MAX) {
       return false;
     }
@@ -43,7 +43,7 @@ public:
     return S_ISDIR(st.st_mode) ? true : false;
   }
 
-  static bool CreateDir(const std::string &path) {
+  static bool CreateDir(const std::string& path) {
     if (path.empty() || path.size() > PATH_MAX) {
       return false;
     }
@@ -67,7 +67,7 @@ public:
     return (mkdir(path.c_str(), 0750) == 0) ? true : false;
   }
 
-  static std::string RealPath(const std::string &path) {
+  static std::string RealPath(const std::string& path) {
     if (path.empty() || path.size() > PATH_MAX) {
       return "";
     }
@@ -78,7 +78,7 @@ public:
     return std::string(realPath);
   }
 
-  static std::string RelativeToAbsPath(const std::string &path) {
+  static std::string RelativeToAbsPath(const std::string& path) {
     if (path.empty() || path.size() > PATH_MAX) {
       return "";
     }
@@ -92,19 +92,20 @@ public:
     return std::string(path);
   }
 
-  static std::string DirName(const std::string &path) {
+  static std::string DirName(const std::string& path) {
     if (path.empty()) {
       return "";
     }
     std::string temp_path = std::string(path.begin(), path.end());
-    char *path_c = dirname(const_cast<char *>(temp_path.data()));
+    char* path_c = dirname(const_cast<char*>(temp_path.data()));
     return path_c ? std::string(path_c) : "";
   }
 
   static uint64_t GetClockMonotonicRawNs() {
     struct timespec ts = {0};
     clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
-    return static_cast<uint64_t>(ts.tv_sec) * 1000000000 + static_cast<uint64_t>(ts.tv_nsec); // 1000000000为秒转换为纳秒的倍数
+    return static_cast<uint64_t>(ts.tv_sec) * 1000000000 +
+        static_cast<uint64_t>(ts.tv_nsec); // 1000000000为秒转换为纳秒的倍数
   }
 
   static uint64_t getClockSyscnt() {
@@ -116,13 +117,15 @@ public:
     uint32_t hi = 0;
     uint32_t lo = 0;
     __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
-    cycles = (static_cast<uint64_t>(lo)) | ((static_cast<uint64_t>(hi)) << uint32Bits);
+    cycles = (static_cast<uint64_t>(lo)) |
+        ((static_cast<uint64_t>(hi)) << uint32Bits);
 #elif defined(__arm__)
     const uint32_t uint32Bits = 32U;
     uint32_t hi = 0;
     uint32_t lo = 0;
     asm volatile("mrrc p15, 1, %0, %1, c14" : "=r"(lo), "=r"(hi));
-    cycles = (static_cast<uint64_t>(lo)) | ((static_cast<uint64_t>(hi)) << uint32Bits);
+    cycles = (static_cast<uint64_t>(lo)) |
+        ((static_cast<uint64_t>(hi)) << uint32Bits);
 #else
     cycles = 0;
 #endif
@@ -138,7 +141,7 @@ public:
     }
   }
 
-  static bool CreateFile(const std::string &path) {
+  static bool CreateFile(const std::string& path) {
     if (path.empty() || path.size() > PATH_MAX || !CreateDir(DirName(path))) {
       return false;
     }
@@ -146,31 +149,30 @@ public:
     return (fd < 0 || close(fd) != 0) ? false : true;
   }
 
-  static bool IsSoftLink(const std::string &path) {
+  static bool IsSoftLink(const std::string& path) {
     if (path.empty() || path.size() > PATH_MAX || !IsFileExist(path)) {
       return false;
     }
-    struct stat st{};
+    struct stat st {};
     if (lstat(path.c_str(), &st) != 0) {
       return false;
     }
     return S_ISLNK(st.st_mode);
   }
 
-    static uint64_t GetTid()
-    {
-        static thread_local uint64_t tid = static_cast<uint64_t>(syscall(SYS_gettid));
-        return tid;
-    }
+  static uint64_t GetTid() {
+    static thread_local uint64_t tid =
+        static_cast<uint64_t>(syscall(SYS_gettid));
+    return tid;
+  }
 
-    static uint64_t GetPid()
-    {
-        static thread_local uint64_t pid = static_cast<uint64_t>(getpid());
-        return pid;
-    }
+  static uint64_t GetPid() {
+    static thread_local uint64_t pid = static_cast<uint64_t>(getpid());
+    return pid;
+  }
 
-    static uint64_t GetHostUid();
+  static uint64_t GetHostUid();
 };
-} // profiler
-} // toolkit
-} // torch_npu
+} // namespace profiler
+} // namespace toolkit
+} // namespace torch_npu

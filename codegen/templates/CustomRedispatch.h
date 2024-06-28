@@ -8,7 +8,7 @@ namespace redispatch {
 
 ${custom_function_declarations}
 
-}  // namespace redispatch
-}  // namespace at_npu
+} // namespace redispatch
+} // namespace at_npu
 
 #endif

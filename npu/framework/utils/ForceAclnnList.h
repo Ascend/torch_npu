@@ -23,15 +23,16 @@ namespace at_npu {
 namespace native {
 
 class ForceAclnn {
-public:
+ public:
   static ForceAclnn& GetInstance() {
     static ForceAclnn instance;
     return instance;
   }
   void RegisterOp(const std::string& list);
-  bool IsForceAclnnOp(const std::string &op_name) const;
+  bool IsForceAclnnOp(const std::string& op_name) const;
   ~ForceAclnn() = default;
-private:
+
+ private:
   ForceAclnn() = default;
   std::set<std::string> force_aclnn_op_list_;
 };

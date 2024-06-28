@@ -7,9 +7,9 @@
 namespace c10_npu {
 namespace queue {
 struct CopyParas {
-  void *dst = nullptr;
+  void* dst = nullptr;
   size_t dstLen = 0;
-  void *src = nullptr;
+  void* src = nullptr;
   size_t srcLen = 0;
   aclrtMemcpyKind kind = ACL_MEMCPY_HOST_TO_HOST;
   void Copy(CopyParas& other);
@@ -42,7 +42,8 @@ enum QueueParamType {
 };
 
 struct QueueParas {
-  QueueParas(QueueParamType type, size_t len, void *val) : paramType(type), paramLen(len), paramVal(val) {}
+  QueueParas(QueueParamType type, size_t len, void* val)
+      : paramType(type), paramLen(len), paramVal(val) {}
   aclrtStream paramStream = nullptr;
   QueueParamType paramType = COMPILE_AND_EXECUTE;
   size_t paramLen = 0;
@@ -51,13 +52,20 @@ struct QueueParas {
   uint64_t correlation_id = 0;
 };
 
-aclError LaunchAsyncCopyTask(void* dst, size_t dstLen, void* src, size_t srcLen, aclrtMemcpyKind kind);
+aclError LaunchAsyncCopyTask(
+    void* dst,
+    size_t dstLen,
+    void* src,
+    size_t srcLen,
+    aclrtMemcpyKind kind);
 
 aclError LaunchRecordEventTask(aclrtEvent event, c10_npu::NPUStream npuStream);
 
 aclError LaunchWaitEventTask(aclrtEvent event, c10_npu::NPUStream npuStream);
 
-aclError LaunchLazyDestroyEventTask(aclrtEvent event, c10::DeviceIndex device_index);
+aclError LaunchLazyDestroyEventTask(
+    aclrtEvent event,
+    c10::DeviceIndex device_index);
 
 } // namespace queue
 } // namespace c10_npu
