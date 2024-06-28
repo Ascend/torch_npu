@@ -1,10 +1,10 @@
 #ifndef __TORCH_NPU_INTERFACE_ACLINTERFACE__
 #define __TORCH_NPU_INTERFACE_ACLINTERFACE__
 
-#include <third_party/acl/inc/acl/acl_base.h>
-#include <third_party/acl/inc/acl/acl_op.h>
-#include <third_party/acl/inc/acl/acl_prof.h>
-#include "third_party/acl/inc/acl/acl_rt.h"
+#include <npu/acl/include/acl/acl_base.h>
+#include <npu/acl/include/acl/acl_op.h>
+#include <npu/acl/include/acl/acl_prof.h>
+#include "npu/acl/include/acl/acl_rt.h"
 
 namespace at_npu {
 namespace native {

@@ -10,7 +10,7 @@
 #include <c10/core/Device.h>
 #include <c10/macros/Macros.h>
 
-#include <third_party/acl/inc/acl/acl.h>
+#include <npu/acl/include/acl/acl.h>
 #include "npu/core/npu/NPUException.h"
 #include "npu/core/npu/NPUMacros.h"
 #include "npu/core/npu/npu_log.h"

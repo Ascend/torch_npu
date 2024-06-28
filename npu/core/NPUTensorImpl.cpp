@@ -6,7 +6,7 @@
 #include "npu/core/NPUStorageImpl.h"
 #include "npu/core/NPUTensorImpl.h"
 #include "npu/framework/StorageDescHelper.h"
-#include "third_party/acl/inc/acl/acl_rt.h"
+#include "npu/acl/include/acl/acl_rt.h"
 
 namespace torch_npu {
 NPUTensorImpl::NPUTensorImpl(

@@ -5,9 +5,9 @@
 #include "npu/core/npu/NPUGuard.h"
 #include "npu/core/npu/sys_ctrl/npu_sys_ctrl.h"
 
-#include "third_party/acl/inc/acl/acl.h"
-#include "third_party/acl/inc/acl/acl_base.h"
-#include "third_party/acl/inc/acl/acl_rt.h"
+#include "npu/acl/include/acl/acl.h"
+#include "npu/acl/include/acl/acl_base.h"
+#include "npu/acl/include/acl/acl_rt.h"
 #include "torch_npu/csrc/npu/Module.h"
 #include "torch_npu/csrc/npu/Stream.h"
 

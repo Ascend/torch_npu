@@ -1,7 +1,7 @@
 #include "npu/framework/interface/MsProfilerInterface.h"
 #include "npu/core/npu/NPUException.h"
 #include "npu/core/npu/register/FunctionLoader.h"
-#include "third_party/acl/inc/acl/acl_prof.h"
+#include "npu/acl/include/acl/acl_prof.h"
 
 namespace at_npu {
 namespace native {

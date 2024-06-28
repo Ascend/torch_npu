@@ -8,7 +8,7 @@
 #include "npu/core/npu/interface/AsyncTaskQueueInterface.h"
 #include "npu/framework/FormatHelper.h"
 #include "npu/framework/utils/CalcuOpUtil.h"
-#include "third_party/acl/inc/acl/acl.h"
+#include "npu/acl/include/acl/acl.h"
 
 namespace at_npu {
 namespace native {

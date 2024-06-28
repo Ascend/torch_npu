@@ -11,7 +11,7 @@
 #include "npu/framework/interface/AclOpCompileInterface.h"
 #include "npu/framework/interface/EnvVariables.h"
 #include "npu/framework/utils/ForceJitCompileList.h"
-#include "third_party/acl/inc/acl/acl_base.h"
+#include "npu/acl/include/acl/acl_base.h"
 
 namespace at_npu {
 namespace native {

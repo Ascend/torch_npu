@@ -6,7 +6,7 @@
 #include <thread>
 
 #include <c10/core/Device.h>
-#include <third_party/acl/inc/acl/acl_op.h>
+#include <npu/acl/include/acl/acl_op.h>
 #include "npu/core/npu/npu_log.h"
 
 namespace c10_npu {

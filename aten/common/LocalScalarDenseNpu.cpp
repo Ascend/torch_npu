@@ -4,8 +4,8 @@
 #include "aten/NPUNativeFunctions.h"
 #include "npu/core/npu/NPUStream.h"
 #include "npu/framework/utils/CalcuOpUtil.h"
-#include "third_party/acl/inc/acl/acl_base.h"
-#include "third_party/acl/inc/acl/acl_rt.h"
+#include "npu/acl/include/acl/acl_base.h"
+#include "npu/acl/include/acl/acl_rt.h"
 
 namespace at_npu {
 namespace native {

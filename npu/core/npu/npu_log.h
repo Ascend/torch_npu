@@ -4,7 +4,7 @@
 #include <iostream>
 #include <string>
 #include "npu/core/npu/register/OptionsManager.h"
-#include "third_party/acl/inc/acl/acl_base.h"
+#include "npu/acl/include/acl/acl_base.h"
 
 #define NPUStatus std::string
 #define SUCCESS "SUCCESS"

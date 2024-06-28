@@ -1,4 +1,4 @@
-#include "third_party/hccl/inc/hccl/hccl.h"
+#include "npu/acl/include/hccl/hccl.h"
 
 namespace at_npu {
 namespace native {

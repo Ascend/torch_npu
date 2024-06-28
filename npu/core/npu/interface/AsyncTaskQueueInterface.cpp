@@ -4,7 +4,7 @@
 #include "npu/core/npu/register/OptionsManager.h"
 #include "npu/framework/NPUDefine.h"
 #include "npu/framework/utils/NpuUtils.h"
-#include "third_party/acl/inc/acl/acl_rt.h"
+#include "npu/acl/include/acl/acl_rt.h"
 #ifndef BUILD_LIBTORCH
 #include "torch_npu/csrc/sanitizer/NPUTrace.h"
 #endif

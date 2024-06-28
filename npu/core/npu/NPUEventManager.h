@@ -2,7 +2,7 @@
 
 #include <c10/core/thread_pool.h>
 #include <c10/util/flat_hash_map.h>
-#include <third_party/acl/inc/acl/acl.h>
+#include <npu/acl/include/acl/acl.h>
 #include <deque>
 #include <mutex>
 

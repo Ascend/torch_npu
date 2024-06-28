@@ -18,8 +18,8 @@
 #include "npu/framework/utils/CalcuOpUtil.h"
 #include "npu/framework/utils/ForceJitCompileList.h"
 #include "npu/framework/utils/NpuUtils.h"
-#include "third_party/acl/inc/acl/acl_base.h"
-#include "third_party/acl/inc/acl/acl_rt.h"
+#include "npu/acl/include/acl/acl_base.h"
+#include "npu/acl/include/acl/acl_rt.h"
 
 namespace {
 constexpr float EPSILON = 1e-6;

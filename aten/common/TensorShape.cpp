@@ -18,7 +18,7 @@
 #include "aten/common/FormatCastHelper.h"
 #include "aten/common/ResizeNpu.h"
 #include "npu/framework/InferFormat.h"
-#include "third_party/acl/inc/acl/acl_base.h"
+#include "npu/acl/include/acl/acl_base.h"
 
 namespace {
 // Named type instead of a pair/tuple so that we can be sure to

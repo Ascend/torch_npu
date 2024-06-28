@@ -30,7 +30,7 @@
 #include "npu/core/npu/register/OptionRegister.h"
 #include "npu/core/npu/sys_ctrl/npu_sys_ctrl.h"
 #include "npu/framework/StorageDescHelper.h"
-#include "third_party/acl/inc/acl/acl.h"
+#include "npu/acl/include/acl/acl.h"
 #include "torch_npu/csrc/npu/DataParallelComm.h"
 #include "torch_npu/csrc/npu/Module.h"
 #include "torch_npu/csrc/npu/NPUPluggableAllocator.h"

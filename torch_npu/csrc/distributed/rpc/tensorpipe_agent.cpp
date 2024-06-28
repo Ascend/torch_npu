@@ -18,7 +18,7 @@
 #include "npu/core/npu/sys_ctrl/npu_sys_ctrl.h"
 #include "third_party/Tensorpipe/tensorpipe/common/device_id.h"
 #include "third_party/Tensorpipe/tensorpipe/tensorpipe.h"
-#include "third_party/acl/inc/acl/acl_rt.h"
+#include "npu/acl/include/acl/acl_rt.h"
 #include "torch_npu/csrc/distributed/rpc/tensorpipe_utils.h"
 
 namespace torch_npu {

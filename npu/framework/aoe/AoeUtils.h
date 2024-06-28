@@ -1,7 +1,7 @@
 #ifndef __NATIVE_NPU_TOOLS_AOEUTILS__
 #define __NATIVE_NPU_TOOLS_AOEUTILS__
 
-#include <third_party/acl/inc/acl/acl_op_compiler.h>
+#include <npu/acl/include/acl/acl_op_compiler.h>
 #include <unordered_set>
 #include "npu/core/npu/NPUException.h"
 

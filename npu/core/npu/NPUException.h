@@ -2,7 +2,7 @@
 
 #include <c10/macros/Macros.h>
 #include <c10/util/Exception.h>
-#include <third_party/acl/inc/acl/acl_base.h>
+#include <npu/acl/include/acl/acl_base.h>
 #include <unistd.h>
 #include <chrono>
 #include <cstdarg>

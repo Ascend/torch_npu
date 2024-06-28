@@ -7,10 +7,10 @@
 #include <vector>
 #include "npu/core/npu/npu_log.h"
 
-#include "third_party/acl/inc/acl/acl.h"
-#include "third_party/acl/inc/acl/acl_base.h"
-#include "third_party/acl/inc/acl/acl_op.h"
-#include "third_party/acl/inc/ge/ge_error_codes.h"
+#include "npu/acl/include/acl/acl.h"
+#include "npu/acl/include/acl/acl_base.h"
+#include "npu/acl/include/acl/acl_op.h"
+#include "npu/acl/include/ge/ge_error_codes.h"
 
 #include "npu/core/npu/NPUCachingAllocator.h"
 #include "npu/core/npu/interface/AsyncTaskQueueInterface.h"

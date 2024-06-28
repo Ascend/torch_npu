@@ -193,7 +193,7 @@ def generate_bindings_code(base_dir):
 def build_stub(base_dir):
     build_stub_cmd = [
         "sh",
-        os.path.join(base_dir, "third_party/acl/libs/build_stub.sh"),
+        os.path.join(base_dir, "npu/acl/libs/build_stub.sh"),
     ]
     if subprocess.call(build_stub_cmd) != 0:
         print("Failed to build stub: {}".format(build_stub_cmd), file=sys.stderr)
@@ -214,8 +214,6 @@ def CppExtension(name, sources, *args, **kwargs):
 
     temp_library_dirs = kwargs.get("library_dirs", [])
     temp_library_dirs.append(os.path.join(pytorch_dir, "lib"))
-    temp_library_dirs.append(os.path.join(BASE_DIR, "third_party/acl/libs"))
-    temp_library_dirs.append(os.path.join(BASE_DIR, "torch_npu/lib"))
     kwargs["library_dirs"] = temp_library_dirs
 
     libraries = kwargs.get("libraries", [])
@@ -223,7 +221,7 @@ def CppExtension(name, sources, *args, **kwargs):
     # libraries.append("torch")
     libraries.append("torch_cpu")
     libraries.append("torch_python")
-    libraries.append("hccl")
+    # libraries.append("hccl")
     kwargs["libraries"] = libraries
     kwargs["language"] = "c++"
     return Extension(name, sources, *args, **kwargs)
@@ -381,9 +379,7 @@ def build_deps():
 def configure_extension_build():
     include_directories = [
         BASE_DIR,
-        os.path.join(BASE_DIR, "patch/include"),
-        os.path.join(BASE_DIR, "third_party/hccl/inc"),
-        os.path.join(BASE_DIR, "third_party/acl/inc"),
+        os.path.join(BASE_DIR, "npu/acl/include"),
     ]
 
     extra_link_args = []
@@ -417,12 +413,12 @@ def configure_extension_build():
     C = CppExtension(
         "torch_npu._C",
         sources=["torch_npu/csrc/stub.c"],
-        libraries=["torch_npu"],
+        libraries=["torch_npu", "hccl"],
         include_dirs=include_directories,
         extra_compile_args=extra_compile_args
         + ["-fstack-protector-all"]
         + ['-D__FILENAME__="stub.c"'],
-        library_dirs=["lib"],
+        library_dirs=["lib", os.path.join(BASE_DIR, "npu/acl/libs"), os.path.join(BASE_DIR, "torch_npu/lib")],
         extra_link_args=extra_link_args + ["-Wl,-rpath,$ORIGIN/lib"],
         define_macros=[("_GLIBCXX_USE_CXX11_ABI", "0"), ("GLIBCXX_USE_CXX11_ABI", "0")],
     )

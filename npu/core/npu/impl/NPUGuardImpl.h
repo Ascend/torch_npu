@@ -4,9 +4,9 @@
 #include <c10/macros/Macros.h>
 #include <cassert>
 
-#include <third_party/acl/inc/acl/acl.h>
-#include <third_party/acl/inc/acl/acl_base.h>
-#include <third_party/acl/inc/acl/acl_rt.h>
+#include <npu/acl/include/acl/acl.h>
+#include <npu/acl/include/acl/acl_base.h>
+#include <npu/acl/include/acl/acl_rt.h>
 #include "aten/NPUNativeFunctions.h"
 #include "npu/core/npu/NPUException.h"
 #include "npu/core/npu/NPUFunctions.h"

@@ -13,7 +13,7 @@
 #include <sys/eventfd.h>
 #include <sys/prctl.h>
 #include <sys/time.h>
-#include <third_party/acl/inc/acl/acl_rt.h>
+#include <npu/acl/include/acl/acl_rt.h>
 #include <unistd.h>
 #include <sstream>
 

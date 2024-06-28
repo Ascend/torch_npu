@@ -8,7 +8,7 @@
 #include "npu/framework/interface/AclOpCompileInterface.h"
 #include "npu/framework/utils/ForceAclnnList.h"
 #include "npu/framework/utils/ForceJitCompileList.h"
-#include "third_party/acl/inc/acl/acl_mdl.h"
+#include "npu/acl/include/acl/acl_mdl.h"
 namespace at_npu {
 namespace native {
 namespace env {

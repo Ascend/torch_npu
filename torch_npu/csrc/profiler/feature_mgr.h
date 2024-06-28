@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "third_party/acl/inc/acl/acl_prof.h"
+#include "npu/acl/include/acl/acl_prof.h"
 
 #include "torch_npu/csrc/toolkit/profiler/common/singleton.h"
 namespace torch_npu {

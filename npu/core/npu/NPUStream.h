@@ -11,8 +11,8 @@
 #include "npu/core/npu/NPUMacros.h"
 #include "npu/core/npu/NPUQueue.h"
 #include "npu/core/npu/npu_log.h"
-#include "third_party/acl/inc/acl/acl.h"
-#include "third_party/acl/inc/acl/acl_op.h"
+#include "npu/acl/include/acl/acl.h"
+#include "npu/acl/include/acl/acl_op.h"
 
 namespace c10_npu {
 

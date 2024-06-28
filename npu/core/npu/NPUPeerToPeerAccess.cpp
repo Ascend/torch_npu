@@ -1,7 +1,7 @@
 #include "npu/core/npu/NPUPeerToPeerAccess.h"
 #include <c10/util/Exception.h>
 #include <c10/util/irange.h>
-#include <third_party/acl/inc/acl/acl_rt.h>
+#include <npu/acl/include/acl/acl_rt.h>
 #include "npu/core/npu/NPUGuard.h"
 
 namespace at_npu {

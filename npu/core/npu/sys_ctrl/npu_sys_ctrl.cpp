@@ -17,8 +17,8 @@
 #include "npu/core/npu/register/OptionsManager.h"
 #include "npu/core/npu/sys_ctrl/npu_sys_ctrl.h"
 #include "npu/framework/interface/AclOpCompileInterface.h"
-#include "third_party/acl/inc/acl/acl_op_compiler.h"
-#include "third_party/acl/inc/acl/acl_rt.h"
+#include "npu/acl/include/acl/acl_op_compiler.h"
+#include "npu/acl/include/acl/acl_rt.h"
 #include "torch_npu/csrc/toolkit/profiler/common/utils.h"
 #ifdef SUCCESS
 #undef SUCCESS

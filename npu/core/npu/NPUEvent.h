@@ -4,7 +4,7 @@
 #include <utility>
 #include "npu/core/npu/NPUMacros.h"
 #include "npu/core/npu/NPUStream.h"
-#include "third_party/acl/inc/acl/acl.h"
+#include "npu/acl/include/acl/acl.h"
 
 namespace c10_npu {
 /*

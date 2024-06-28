@@ -17,6 +17,8 @@ find $CDIR/third_party/op-plugin -name "*.h" -o -name "*.cpp" -o -name "*.hpp" |
 xargs -I {} sed -i "s/torch_npu\/csrc\/core/npu\/core/g" {}
 find $CDIR/third_party/op-plugin -name "*.h" -o -name "*.cpp" -o -name "*.hpp" | \
 xargs -I {} sed -i "s/torch_npu\/csrc\/framework/npu\/framework/g" {}
+find $CDIR/third_party/op-plugin -name "*.h" -o -name "*.cpp" -o -name "*.hpp" | \
+xargs -I {} sed -i "s/\"third_party\/acl\/inc/\"npu\/acl\/include/g" {}
 
 file=$CDIR/third_party/op-plugin/gencode.sh
 
