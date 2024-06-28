@@ -1,8 +1,8 @@
 #include <torch/csrc/dynamo/compiled_autograd.h>
 
-#include "torch_npu/csrc/framework/autograd/FunctionsManual.h"
+#include "npu/framework/autograd/FunctionsManual.h"
 
-#include "torch_npu/csrc/aten/CustomFunctions.h"
+#include "aten/CustomFunctions.h"
 
 // ${generated_comment}
 

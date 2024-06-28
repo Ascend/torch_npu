@@ -4,7 +4,7 @@
 #include <c10/util/Optional.h>
 #include <torch/csrc/Export.h>
 
-#include "torch_npu/csrc/core/npu/NPUStream.h"
+#include "npu/core/npu/NPUStream.h"
 
 namespace torch_npu {
 namespace data_parallel {

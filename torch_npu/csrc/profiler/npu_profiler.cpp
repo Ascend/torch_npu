@@ -3,8 +3,8 @@
 #include <torch/csrc/jit/frontend/tracer.h>
 #include <torch/csrc/jit/runtime/interpreter.h>
 
-#include "torch_npu/csrc/core/npu/npu_log.h"
-#include "torch_npu/csrc/core/npu/NPUException.h"
+#include "npu/core/npu/npu_log.h"
+#include "npu/core/npu/NPUException.h"
 #include "torch_npu/csrc/profiler/npu_profiler.h"
 
 #include "torch_npu/csrc/toolkit/profiler/common/utils.h"

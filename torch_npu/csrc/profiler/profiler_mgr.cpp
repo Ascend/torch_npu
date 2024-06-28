@@ -1,10 +1,10 @@
 #include "torch_npu/csrc/profiler/profiler_mgr.h"
-#include "torch_npu/csrc/framework/interface/AclInterface.h"
-#include "torch_npu/csrc/framework/interface/MsProfilerInterface.h"
-#include "torch_npu/csrc/core/npu/npu_log.h"
-#include "torch_npu/csrc/core/npu/NPUStream.h"
+#include "npu/framework/interface/AclInterface.h"
+#include "npu/framework/interface/MsProfilerInterface.h"
+#include "npu/core/npu/npu_log.h"
+#include "npu/core/npu/NPUStream.h"
 #include "torch_npu/csrc/toolkit/profiler/common/utils.h"
-#include "torch_npu/csrc/core/npu/NPUFunctions.h"
+#include "npu/core/npu/NPUFunctions.h"
 #include "torch_npu/csrc/profiler/feature_mgr.h"
 
 namespace torch_npu {

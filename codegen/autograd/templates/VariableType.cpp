@@ -6,10 +6,10 @@
 #include <ATen/RedispatchFunctions.h>
 #include <torch/library.h>
 
-#include "torch_npu/csrc/aten/NPUNativeFunctions.h"
-#include "torch_npu/csrc/aten/VariableType.h"
-#include "torch_npu/csrc/framework/autograd/FunctionsManual.h"
-#include "torch_npu/csrc/aten/CustomRedispatch.h"
+#include "aten/NPUNativeFunctions.h"
+#include "aten/VariableType.h"
+#include "aten/CustomRedispatch.h"
+#include "npu/framework/autograd/FunctionsManual.h"
 
 
 // ${generated_comment}

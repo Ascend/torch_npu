@@ -14,7 +14,7 @@
 #include <torch/csrc/utils/pybind.h>
 #include <pybind11/pybind11.h>
 #include <torch/csrc/utils/pybind.h>
-#include "torch_npu/csrc/aten/Functions.h"
+#include "aten/Functions.h"
 
 // NOTE: See [Sharded File] comment in VariableType
 

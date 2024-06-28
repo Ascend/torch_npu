@@ -1,8 +1,8 @@
 #define TORCH_ASSERT_ONLY_METHOD_OPERATORS
-#include "torch/csrc/autograd/VariableTypeUtils.h"
+#include <torch/csrc/autograd/VariableTypeUtils.h>
 #include <torch/library.h>
 
-#include "torch_npu/csrc/aten/CustomRedispatch.h"
+#include "aten/CustomRedispatch.h"
 
 // ${generated_comment}
 $ops_headers

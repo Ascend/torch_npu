@@ -1,8 +1,8 @@
 #ifndef THNP_STREAM_INC
 #define THNP_STREAM_INC
 
-#include "torch_npu/csrc/core/npu/NPUMacros.h"
-#include "torch_npu/csrc/core/npu/NPUStream.h"
+#include "npu/core/npu/NPUMacros.h"
+#include "npu/core/npu/NPUStream.h"
 #include <torch/csrc/Stream.h>
 #include <torch/csrc/python_headers.h>
 

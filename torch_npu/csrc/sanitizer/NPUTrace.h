@@ -1,6 +1,6 @@
 #pragma once
 
-#include "torch_npu/csrc/core/npu/NPUMacros.h"
+#include "npu/core/npu/NPUMacros.h"
 #include "torch_npu/csrc/sanitizer/PyCallbackTrigger.h"
 
 namespace c10_npu {

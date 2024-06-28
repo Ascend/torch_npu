@@ -8,8 +8,8 @@
 
 #include <ATen/Operators.h>
 #include <ATen/NativeFunctions.h>
-#include "torch_npu/csrc/aten/CustomFunctions.h"
-#include "torch_npu/csrc/core/npu/NPUException.h"
+#include "aten/CustomFunctions.h"
+#include "npu/core/npu/NPUException.h"
 
 
 namespace at_npu {

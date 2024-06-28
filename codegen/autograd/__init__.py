@@ -12,7 +12,7 @@ from codegen.utils import CUSTOM_YAML_NAME
 
 
 def parse_native_and_custom_yaml_(*args, **kwargs):
-    return parse_native_and_custom_yaml(*args, **kwargs, custom_path=f'./torch_npu/csrc/aten/{CUSTOM_YAML_NAME}')
+    return parse_native_and_custom_yaml(*args, **kwargs, custom_path=f'./aten/{CUSTOM_YAML_NAME}')
 
 
 def gen_inplace_or_view_type_env_for_npu(

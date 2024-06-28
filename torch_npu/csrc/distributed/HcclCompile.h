@@ -1,6 +1,6 @@
 #include <c10/util/CallOnce.h>
-#include "torch_npu/csrc/core/npu/NPUException.h"
-#include "torch_npu/csrc/core/npu/register/FunctionLoader.h"
+#include "npu/core/npu/NPUException.h"
+#include "npu/core/npu/register/FunctionLoader.h"
 
 namespace c10d_npu {
 #undef LOAD_FUNCTION

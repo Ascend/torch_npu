@@ -3,13 +3,12 @@ To run this file by hand from the root of the PyTorch
 repository, run:
 
 python -m codegen.autograd.gen_autograd \
-       --npu_native_function_dir="./torch_npu/csrc/aten/npu_native_functions.yaml" \
+       --npu_native_function_dir="./aten/npu_native_functions.yaml" \
        --out_dir=$OUTPUT_DIR \
        --autograd_dir="./codegen/autograd/"
 
 Where $OUTPUT_DIR is where you would like the files to be
-generated.  In the full build system, OUTPUT_DIR is
-torch_npu/csrc/aten/
+generated.  In the full build system, OUTPUT_DIR is aten
 """
 
 # gen_autograd.py generates C++ autograd functions and Python bindings.

@@ -2,8 +2,8 @@
 
 #include <c10/core/Allocator.h>
 
-#include "torch_npu/csrc/core/npu/NPUStream.h"
-#include "torch_npu/csrc/core/npu/NPUCachingAllocator.h"
+#include "npu/core/npu/NPUStream.h"
+#include "npu/core/npu/NPUCachingAllocator.h"
 
 #include <array>
 #include <mutex>

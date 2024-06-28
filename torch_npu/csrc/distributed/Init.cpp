@@ -21,9 +21,9 @@
 #include "torch_npu/csrc/distributed/ProcessGroupHCCL.hpp"
 #include "torch_npu/csrc/distributed/reducer.hpp"
 #include "torch_npu/csrc/distributed/Init.h"
-#include "torch_npu/csrc/aten/NPUNativeFunctions.h"
-#include "torch_npu/csrc/aten/CustomFunctions.h"
-#include "torch_npu/csrc/core/NPUBridge.h"
+#include "aten/NPUNativeFunctions.h"
+#include "aten/CustomFunctions.h"
+#include "npu/core/NPUBridge.h"
 
 
 namespace {

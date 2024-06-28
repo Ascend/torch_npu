@@ -6,7 +6,7 @@
 #include <c10d/comm.hpp>
 #include <torch/torch.h>
 
-#include "torch_npu/csrc/core/npu/NPUException.h"
+#include "npu/core/npu/NPUException.h"
 
 namespace c10d {
 

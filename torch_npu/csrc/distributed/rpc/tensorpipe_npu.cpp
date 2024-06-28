@@ -7,10 +7,10 @@
 #include <torch_npu/csrc/distributed/rpc/tensorpipe_agent.h>
 #include <torch_npu/csrc/distributed/rpc/tensorpipe_utils.h>
 
-#include "torch_npu/csrc/core/NPUStorageImpl.h"
-#include "torch_npu/csrc/core/npu/NPUCachingAllocator.h"
-#include "torch_npu/csrc/core/npu/NPUStream.h"
-#include "torch_npu/csrc/core/npu/SecondaryStreamGuard.h"
+#include "npu/core/NPUStorageImpl.h"
+#include "npu/core/npu/NPUCachingAllocator.h"
+#include "npu/core/npu/NPUStream.h"
+#include "npu/core/npu/SecondaryStreamGuard.h"
 
 namespace torch_npu {
 namespace distributed {

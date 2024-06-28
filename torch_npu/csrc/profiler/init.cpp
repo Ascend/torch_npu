@@ -16,8 +16,8 @@
 #include "torch_npu/csrc/profiler/profiler_python.h"
 #include "torch_npu/csrc/profiler/npu_profiler.h"
 #include "torch_npu/csrc/toolkit/profiler/common/utils.h"
-#include "torch_npu/csrc/framework/interface/LibAscendHal.h"
-#include "torch_npu/csrc/core/npu/NPUException.h"
+#include "npu/framework/interface/LibAscendHal.h"
+#include "npu/core/npu/NPUException.h"
 
 namespace torch_npu {
 namespace profiler {

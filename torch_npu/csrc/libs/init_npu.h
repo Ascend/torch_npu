@@ -1,7 +1,7 @@
 #pragma once
 
 #include <c10/core/Device.h>
-#include "torch_npu/csrc/core/npu/NPUMacros.h"
+#include "npu/core/npu/NPUMacros.h"
 
 namespace torch_npu {
 

@@ -9,7 +9,7 @@
 #include <c10d/Work.hpp>
 
 #include "third_party/hccl/inc/hccl/hccl.h"
-#include "torch_npu/csrc/core/npu/interface/HcclInterface.h"
+#include "npu/core/npu/interface/HcclInterface.h"
 #include "torch_npu/csrc/distributed/HCCLUtils.hpp"
 #include "torch_npu/csrc/npu/Event.h"
 

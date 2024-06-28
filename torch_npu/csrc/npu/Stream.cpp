@@ -1,9 +1,9 @@
 #include <pybind11/pybind11.h>
 #include <torch/csrc/Device.h>
 #include <torch/csrc/THP.h>
-#include "torch_npu/csrc/core/npu/NPUGuard.h"
+#include "npu/core/npu/NPUGuard.h"
 #include <structmember.h>
-#include "torch_npu/csrc/core/npu/sys_ctrl/npu_sys_ctrl.h"
+#include "npu/core/npu/sys_ctrl/npu_sys_ctrl.h"
 
 #include "torch_npu/csrc/npu/Stream.h"
 #include "torch_npu/csrc/npu/Module.h"

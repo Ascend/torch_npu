@@ -1,6 +1,6 @@
 #include <ATen/core/dispatch/Dispatcher.h>
 
-#include "torch_npu/csrc/aten/CustomFunctions.h"
+#include "aten/CustomFunctions.h"
 
 
 namespace at_npu {

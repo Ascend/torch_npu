@@ -6,7 +6,7 @@
 #include <ATen/ATen.h>
 #include <ATen/record_function.h>
 
-#include "torch_npu/csrc/core/npu/NPUException.h"
+#include "npu/core/npu/NPUException.h"
 
 namespace torch_npu {
 namespace profiler {

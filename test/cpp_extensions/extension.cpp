@@ -1,6 +1,6 @@
 #include <torch/extension.h>
-#include "torch_npu/csrc/core/npu/NPUFormat.h"
-#include "torch_npu/csrc/aten/common/from_blob.h"
+#include "npu/core/npu/NPUFormat.h"
+#include "aten/common/from_blob.h"
 // test   in  .setup with relative path
 #include <tmp.h>
 

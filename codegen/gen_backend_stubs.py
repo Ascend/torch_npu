@@ -395,11 +395,11 @@ def gen_dispatcher_registrations(
 #include "torch_npu/csrc/profiler/utils.h"
 #endif
 
-#include "torch_npu/csrc/aten/NPUNativeFunctions.h"
-#include "torch_npu/csrc/framework/interface/EnvVariables.h"
-#include "torch_npu/csrc/aten/NPUOpApiNativeFunctions.h"
-#include "torch_npu/csrc/framework/FormatHelper.h"
-#include "torch_npu/csrc/framework/utils/ForceAclnnList.h"
+#include "aten/NPUNativeFunctions.h"
+#include "aten/NPUOpApiNativeFunctions.h"
+#include "npu/framework/interface/EnvVariables.h"
+#include "npu/framework/FormatHelper.h"
+#include "npu/framework/utils/ForceAclnnList.h"
 #include "op_plugin/OpInterface.h"
 """
     static_template = CodeTemplate(
@@ -735,7 +735,7 @@ def run(source_yaml: str, output_dir: str, dry_run: bool,
                              grouped_native_functions,
                              backend_indices[backend_dispatch_key])
 
-        custom_ops_patch_dir = os.path.join(output_dir, "../../utils/")
+        custom_ops_patch_dir = os.path.join(output_dir, "../torch_npu/utils/")
         fm = FileManager(install_dir=custom_ops_patch_dir, template_dir=pta_template_dir, dry_run=dry_run)
         gen_custom_ops_patch(fm, custom_functions)
 

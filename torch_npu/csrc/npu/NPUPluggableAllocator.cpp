@@ -3,8 +3,8 @@
 #include <utility>
 
 #include "torch_npu/csrc/npu/NPUPluggableAllocator.h"
-#include "torch_npu/csrc/core/npu/NPUCachingAllocator.h"
-#include "torch_npu/csrc/core/npu/NPUGuard.h"
+#include "npu/core/npu/NPUCachingAllocator.h"
+#include "npu/core/npu/NPUGuard.h"
 
 namespace torch::npu::NPUPluggableAllocator {
 

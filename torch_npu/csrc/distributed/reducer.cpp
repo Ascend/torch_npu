@@ -32,10 +32,10 @@
 
 #include "torch_npu/csrc/distributed/reducer.hpp"
 #include "torch_npu/csrc/distributed/ProcessGroupHCCL.hpp"
-#include "torch_npu/csrc/aten/NPUNativeFunctions.h"
-#include "torch_npu/csrc/framework/utils/OpPreparation.h"
-#include "torch_npu/csrc/core/NPUBridge.h"
-#include "torch_npu/csrc/core/NPUStorageImpl.h"
+#include "aten/NPUNativeFunctions.h"
+#include "npu/framework/utils/OpPreparation.h"
+#include "npu/core/NPUBridge.h"
+#include "npu/core/NPUStorageImpl.h"
 
 namespace c10d_npu {
 namespace {

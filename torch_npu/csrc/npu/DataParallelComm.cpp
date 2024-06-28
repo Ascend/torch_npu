@@ -14,10 +14,10 @@
 #include <torch/csrc/autograd/variable.h>
 
 #include "torch_npu/csrc/distributed/HCCLUtils.hpp"
-#include "torch_npu/csrc/core/npu/NPUMacros.h"
-#include "torch_npu/csrc/core/npu/NPUGuard.h"
-#include "torch_npu/csrc/core/npu/DeviceUtils.h"
-#include "torch_npu/csrc/core/npu/NPUException.h"
+#include "npu/core/npu/NPUMacros.h"
+#include "npu/core/npu/NPUGuard.h"
+#include "npu/core/npu/DeviceUtils.h"
+#include "npu/core/npu/NPUException.h"
 
 namespace torch_npu {
 using namespace at;

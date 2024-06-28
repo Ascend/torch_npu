@@ -1,10 +1,10 @@
 #ifndef __TORCH_NPU_MSPROF_TX__
 #define __TORCH_NPU_MSPROF_TX__
 
-#include "torch_npu/csrc/core/npu/NPUStream.h"
-#include "torch_npu/csrc/core/npu/NPUFunctions.h"
-#include "torch_npu/csrc/framework/interface/MsProfilerInterface.h"
-#include "torch_npu/csrc/framework/OpCommand.h"
+#include "npu/core/npu/NPUStream.h"
+#include "npu/core/npu/NPUFunctions.h"
+#include "npu/framework/interface/MsProfilerInterface.h"
+#include "npu/framework/OpCommand.h"
 #include "torch_npu/csrc/profiler/profiler_mgr.h"
 
 namespace torch_npu {

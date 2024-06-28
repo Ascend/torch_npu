@@ -1,10 +1,10 @@
 #include "torch_npu/csrc/libs/init_npu.h"
-#include "torch_npu/csrc/core/npu/NPUException.h"
-#include "torch_npu/csrc/core/npu/sys_ctrl/npu_sys_ctrl.h"
-#include "torch_npu/csrc/core/npu/NPUStream.h"
-#include "torch_npu/csrc/core/npu/NPUGuard.h"
-#include "torch_npu/csrc/core/npu/THNPUCachingHostAllocator.h"
-#include "torch_npu/csrc/core/npu/NPUCachingAllocator.h"
+#include "npu/core/npu/NPUException.h"
+#include "npu/core/npu/sys_ctrl/npu_sys_ctrl.h"
+#include "npu/core/npu/NPUStream.h"
+#include "npu/core/npu/NPUGuard.h"
+#include "npu/core/npu/THNPUCachingHostAllocator.h"
+#include "npu/core/npu/NPUCachingAllocator.h"
 
 
 namespace torch_npu {

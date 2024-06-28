@@ -1,7 +1,6 @@
 import glob
 import shutil
 import multiprocessing
-import multiprocessing.pool
 import os
 import re
 import stat
@@ -14,13 +13,10 @@ import time
 from pathlib import Path
 from typing import Union
 
-import distutils.ccompiler
 import distutils.command.clean
 from sysconfig import get_paths
 from distutils.version import LooseVersion
-from setuptools import setup, distutils, Extension
-from setuptools.dist import Distribution
-from setuptools import Extension, find_packages, setup
+from setuptools import setup, distutils, Extension, find_packages, setup
 
 from codegen.utils import PathManager
 
@@ -224,7 +220,7 @@ def CppExtension(name, sources, *args, **kwargs):
 
     libraries = kwargs.get("libraries", [])
     libraries.append("c10")
-    libraries.append("torch")
+    # libraries.append("torch")
     libraries.append("torch_cpu")
     libraries.append("torch_python")
     libraries.append("hccl")
@@ -263,12 +259,12 @@ class Clean(distutils.command.clean.clean):
         distutils.command.clean.clean.run(self)
 
         remove_files = [
-            "torch_npu/csrc/aten/RegisterCPU.cpp",
-            "torch_npu/csrc/aten/RegisterNPU.cpp",
-            "torch_npu/csrc/aten/RegisterAutogradNPU.cpp",
-            "torch_npu/csrc/aten/NPUNativeFunctions.h",
-            "torch_npu/csrc/aten/CustomRegisterSchema.cpp",
-            "torch_npu/csrc/aten/ForeachRegister.cpp",
+            "aten/RegisterCPU.cpp",
+            "aten/RegisterNPU.cpp",
+            "aten/RegisterAutogradNPU.cpp",
+            "aten/NPUNativeFunctions.h",
+            "aten/CustomRegisterSchema.cpp",
+            "aten/ForeachRegister.cpp",
             "torch_npu/utils/custom_ops.py",
             "torch_npu/version.py",
         ]
@@ -420,12 +416,12 @@ def configure_extension_build():
     extension = []
     C = CppExtension(
         "torch_npu._C",
-        sources=["torch_npu/csrc/InitNpuBindings.cpp"],
+        sources=["torch_npu/csrc/stub.c"],
         libraries=["torch_npu"],
         include_dirs=include_directories,
         extra_compile_args=extra_compile_args
         + ["-fstack-protector-all"]
-        + ['-D__FILENAME__="InitNpuBindings.cpp"'],
+        + ['-D__FILENAME__="stub.c"'],
         library_dirs=["lib"],
         extra_link_args=extra_link_args + ["-Wl,-rpath,$ORIGIN/lib"],
         define_macros=[("_GLIBCXX_USE_CXX11_ABI", "0"), ("GLIBCXX_USE_CXX11_ABI", "0")],
@@ -473,7 +469,7 @@ def main():
     if sys.version_info >= (3, 12, 0):
         install_requires.append("setuptools")
 
-    dist = Distribution()
+    dist = setuptools.dist.Distribution()
     dist.script_name = os.path.basename(sys.argv[0])
     dist.script_args = sys.argv[1:]
     try:

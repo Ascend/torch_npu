@@ -1,7 +1,7 @@
 #include "torch_npu/csrc/profiler/feature_mgr.h"
 
-#include "torch_npu/csrc/core/npu/npu_log.h"
-#include "torch_npu/csrc/framework/interface/MsProfilerInterface.h"
+#include "npu/core/npu/npu_log.h"
+#include "npu/framework/interface/MsProfilerInterface.h"
 
 
 namespace torch_npu {

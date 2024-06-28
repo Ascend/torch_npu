@@ -1,8 +1,8 @@
 #pragma once
 
-#include "torch_npu/csrc/core/npu/npu_log.h"
-#include "torch_npu/csrc/core/npu/sys_ctrl/npu_sys_ctrl.h"
-#include "torch_npu/csrc/core/npu/NPUException.h"
+#include "npu/core/npu/npu_log.h"
+#include "npu/core/npu/sys_ctrl/npu_sys_ctrl.h"
+#include "npu/core/npu/NPUException.h"
 #include <map>
 #include <memory>
 #include <string>

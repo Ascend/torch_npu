@@ -24,9 +24,9 @@
 #include <torch/csrc/autograd/function.h>
 #include <torch/csrc/jit/frontend/tracer.h>
 
-#include "torch_npu/csrc/aten/NPUNativeFunctions.h"
-#include "torch_npu/csrc/aten/VariableType.h"
-#include "torch_npu/csrc/core/npu/NPUException.h"
+#include "aten/NPUNativeFunctions.h"
+#include "aten/VariableType.h"
+#include "npu/core/npu/NPUException.h"
 #include "op_plugin/OpInterface.h"
 
 namespace at_npu {

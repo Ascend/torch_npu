@@ -153,7 +153,7 @@ set(CMAKE_CXX_FLAGS "-fabi-version=11 ${CMAKE_CXX_FLAGS}")
 
 
 include_directories(${PROJECT_SOURCE_DIR})
-include_directories(${PROJECT_SOURCE_DIR}/torch_npu/csrc/aten)
+include_directories(${PROJECT_SOURCE_DIR}/aten)
 include_directories(${PROJECT_SOURCE_DIR}/third_party/hccl/inc)
 include_directories(${PROJECT_SOURCE_DIR}/third_party/acl/inc)
 
@@ -177,16 +177,15 @@ endif()
 set(ATEN_SRCS)
 set(CORE_SRCS)
 set(FRAMEWORK_SRCS)
-
 set(DIST_SRCS)
 set(NPU_SRCS)
 set(PROF_SRCS)
 set(UTILS_SRCS)
 set(SAN_SRCS)
 
-add_subdirectory(${TORCHNPU_ROOT}/aten)
-add_subdirectory(${TORCHNPU_ROOT}/core)
-add_subdirectory(${TORCHNPU_ROOT}/framework)
+add_subdirectory(${PROJECT_SOURCE_DIR}/aten)
+add_subdirectory(${PROJECT_SOURCE_DIR}/npu/core)
+add_subdirectory(${PROJECT_SOURCE_DIR}/npu/framework)
 
 add_subdirectory(${TORCHNPU_ROOT}/distributed)
 add_subdirectory(${TORCHNPU_ROOT}/npu)
@@ -199,14 +198,10 @@ set(OPS_PLUGIN_SRCS)
 include_directories(${PROJECT_SOURCE_DIR}/third_party/op-plugin)
 add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/op-plugin/op_plugin)
 
-set(CPP_SRCS ${ATEN_SRCS} ${CORE_SRCS} ${OPS_PLUGIN_SRCS} ${DIST_SRCS} ${FRAMEWORK_SRCS} ${NPU_SRCS} ${PROF_SRCS} ${UTILS_SRCS} ${SAN_SRCS})
+set(CPP_SRCS ${ATEN_SRCS} ${CORE_SRCS} ${OPS_PLUGIN_SRCS} ${DIST_SRCS} ${FRAMEWORK_SRCS} ${NPU_SRCS} ${PROF_SRCS} ${UTILS_SRCS} ${SAN_SRCS} ${TORCHNPU_ROOT}/Module.cpp)
 
 add_library(${PLUGIN_NAME} SHARED ${CPP_SRCS})
 include(CheckCXXCompilerFlag)
-check_cxx_compiler_flag("-fvisibility=hidden" COMPILER_SUPPORTS_HIDDEN_VISIBILITY)
-if(${COMPILER_SUPPORTS_HIDDEN_VISIBILITY})
-  target_compile_options(${PLUGIN_NAME} PRIVATE "-fvisibility=hidden")
-endif()
 
 link_directories(${PYTORCH_INSTALL_DIR}/lib)
 link_directories(${TORCHNPU_THIRD_PARTY_ROOT}/acl/libs)

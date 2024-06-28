@@ -1,6 +1,6 @@
 #ifndef THNP_NPU_MODULE_INC
 #define THNP_NPU_MODULE_INC
-#include "torch_npu/csrc/core/npu/NPUMacros.h"
+#include "npu/core/npu/NPUMacros.h"
 
 void THNPModule_setDevice(int idx);
 TORCH_NPU_API void RegisterNPUDeviceProperties(PyObject *module);

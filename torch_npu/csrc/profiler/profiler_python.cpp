@@ -7,7 +7,7 @@
 
 #include "torch_npu/csrc/profiler/npu_profiler.h"
 #include "torch_npu/csrc/profiler/profiler_mgr.h"
-#include "torch_npu/csrc/core/npu/npu_log.h"
+#include "npu/core/npu/npu_log.h"
 #include "torch_npu/csrc/toolkit/profiler/common/utils.h"
 
 #include <torch/csrc/utils/python_strings.h>

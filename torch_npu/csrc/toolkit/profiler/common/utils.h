@@ -10,7 +10,7 @@
 #include <stdint.h>
 
 #include <string>
-#include "torch_npu/csrc/framework/interface/LibAscendHal.h"
+#include "npu/framework/interface/LibAscendHal.h"
 
 namespace torch_npu {
 namespace toolkit {
