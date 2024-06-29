@@ -1,3 +1,8 @@
+# Environment variables for feature toggles:
+# 
+# BUILD_TEST=ON
+#     enable the test build
+
 import glob
 import shutil
 import multiprocessing
@@ -342,6 +347,7 @@ def build_deps():
         "-DPYTHON_INCLUDE_DIR=" + get_paths().get("include"),
         "-DTORCH_VERSION=" + VERSION,
         "-DPYTORCH_INSTALL_DIR=" + get_pytorch_dir(),
+        f"-DBUILD_TEST={os.getenv('BUILD_TEST', 'OFF')}",
     ]
 
     subprocess.check_call(

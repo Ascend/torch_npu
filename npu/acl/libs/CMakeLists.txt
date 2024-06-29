@@ -5,7 +5,7 @@ endfunction()
 
 set(LIBRARIES
     hccl "hccl.cpp"
-    ascendcl "acl.cpp"
+    ascendcl "acl.cpp,acl_rt.cpp"
     acl_op_compiler "acl_op_compiler.cpp"
     ge_runner "ge_runner.cpp,ge_api.cpp"
     graph "graph.cpp,operator_factory.cpp,operator.cpp,tensor.cpp"

@@ -220,29 +220,28 @@ endif()
 target_compile_options(${PLUGIN_NAME} PRIVATE "-DC10_BUILD_MAIN_LIB")
 install(TARGETS ${PLUGIN_NAME} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-if (DEFINED BUILD_GTEST)
+add_subdirectory(${TORCHNPU_ROOT}/toolkit)
+target_link_libraries(${PLUGIN_NAME} PUBLIC npu_profiler)
+
+option(BUILD_TEST "Builds the npu cpp tests" OFF)
+
+if (BUILD_TEST)
+  message(STATUS "Enable BUILD_TEST=" ${BUILD_TEST})
   enable_testing()
   find_package(PythonLibs REQUIRED)
   SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/gtest)
+  add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 
   target_link_libraries(${PLUGIN_NAME} PUBLIC ${PYTHON_LIBRARIES})
   add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/googletest)
-
   add_subdirectory(${PROJECT_SOURCE_DIR}/test/cpp/aten)
 
   list(APPEND TORCH_NPU_TEST_SRCS ${ATEN_TEST_SRCS})
-
-  message(STATUS "NPU test sources: ")
-  foreach(tmp ${TORCH_NPU_TEST_SRCS})
-    message(STATUS "  " ${tmp})
-  endforeach()
+  message(STATUS "NPU test sources: " ${TORCH_NPU_TEST_SRCS})
 
   foreach(test_src ${TORCH_NPU_TEST_SRCS})
     get_filename_component(test_name ${test_src} NAME_WE)
     add_executable(${test_name} "${test_src}")
-    if(NOT MSVC)
-      target_link_libraries(${test_name} stdc++)
-    endif()
     target_include_directories(${test_name} PRIVATE $<INSTALL_INTERFACE:include>)
     target_include_directories(${test_name} PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>)
     target_include_directories(${test_name} PRIVATE ${ATEN_SRCS})
