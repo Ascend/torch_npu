@@ -11,9 +11,6 @@
 #include "npu/framework/OpCommand.h"
 #include "npu/framework/utils/NpuStorageOffsetGuard.h"
 #include "npu/framework/utils/NpuUtils.h"
-#ifndef BUILD_LIBTORCH
-#include "torch_npu/csrc/sanitizer/NPUTrace.h"
-#endif
 
 namespace {
 const uint64_t kStringOffset = 16UL;
@@ -156,40 +153,19 @@ OpCommand& OpCommand::Output(
 void OpCommand::Run() {
   aclCmd->SetEnginePriority();
   const string& op_name = aclCmd->GetName();
-#ifndef BUILD_LIBTORCH
-  const c10_npu::impl::PyCallbackTrigger* trigger =
-      c10_npu::impl::NPUTrace::getTrace();
-#endif
   if (c10_npu::option::OptionsManager::CheckQueueEnable() && !sync) {
     RECORD_FUNCTION(op_name, std::vector<c10::IValue>({}));
-#ifndef BUILD_LIBTORCH
-    at_npu::native::NpuUtils::ProfReportMarkDataToNpuProfiler(0, op_name);
-#endif
     ExecuteParas execParams;
     aclCmd->ExportParams(execParams);
     c10_npu::queue::QueueParas params(
         c10_npu::queue::COMPILE_AND_EXECUTE, sizeof(ExecuteParas), &execParams);
     c10_npu::enCurrentNPUStream(&params);
-#ifndef BUILD_LIBTORCH
-    at_npu::native::NpuUtils::ProfReportMarkDataToNpuProfiler(
-        1, op_name, params.correlation_id);
-#endif
     aclCmd->releaseSource(false);
   } else {
-#ifndef BUILD_LIBTORCH
-    if (C10_UNLIKELY(trigger)) {
-      trigger->traceNpuAclStartExecution(op_name);
-    }
-#endif
     aclCmd->Run(sync, sync_index, outputTensor);
     if (c10_npu::option::OptionsManager::CheckBlockingEnable()) {
       Sync();
     }
-#ifndef BUILD_LIBTORCH
-    if (C10_UNLIKELY(trigger)) {
-      trigger->traceNpuAclFinishExecution(op_name);
-    }
-#endif
     aclCmd->releaseSource();
   }
   aclCmds->Pop();

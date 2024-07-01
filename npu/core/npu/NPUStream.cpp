@@ -17,9 +17,6 @@
 #include "npu/core/npu/interface/AsyncTaskQueueInterface.h"
 #include "npu/core/npu/register/OptionsManager.h"
 #include "npu/acl/include/acl/acl_rt.h"
-#ifndef BUILD_LIBTORCH
-#include "torch_npu/csrc/sanitizer/NPUTrace.h"
-#endif
 
 namespace c10_npu {
 namespace {
@@ -398,15 +395,6 @@ bool npuSynchronizeDevice(bool check_error) {
     }
   }
   auto acl_ret = aclrtSynchronizeDevice();
-#ifndef BUILD_LIBTORCH
-  if (acl_ret == ACL_ERROR_NONE) {
-    const c10_npu::impl::PyCallbackTrigger* trigger =
-        c10_npu::impl::NPUTrace::getTrace();
-    if (C10_UNLIKELY(trigger)) {
-      trigger->traceNpuDeviceSynchronization();
-    }
-  }
-#endif
   if (check_error) {
     NPU_CHECK_ERROR(acl_ret, "aclrtSynchronizeDevice");
   } else {

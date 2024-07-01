@@ -13,9 +13,6 @@
 #include "npu/core/npu/NPUStream.h"
 #include "npu/core/npu/interface/AsyncTaskQueueInterface.h"
 #include "npu/core/npu/sys_ctrl/npu_sys_ctrl.h"
-#ifndef BUILD_LIBTORCH
-#include "torch_npu/csrc/sanitizer/NPUTrace.h"
-#endif
 
 namespace c10_npu {
 namespace impl {
@@ -94,13 +91,6 @@ struct NPUGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     ASCEND_LOGI(
         "Event: aclrtCreateEventWithFlag is successfully executed, event=%p",
         *acl_event);
-#ifndef BUILD_LIBTORCH
-    const c10_npu::impl::PyCallbackTrigger* trigger =
-        c10_npu::impl::NPUTrace::getTrace();
-    if (C10_UNLIKELY(trigger)) {
-      trigger->traceNpuEventCreation(reinterpret_cast<uintptr_t>(*acl_event));
-    }
-#endif
   }
 
   void destroyEvent(void* event, const c10::DeviceIndex device_index)
@@ -146,13 +136,6 @@ struct NPUGuardImpl final : public c10::impl::DeviceGuardImplInterface {
       ASCEND_LOGI(
           "Event: aclrtCreateEventWithFlag is successfully executed, event=%p",
           npu_event);
-#ifndef BUILD_LIBTORCH
-      const c10_npu::impl::PyCallbackTrigger* trigger =
-          c10_npu::impl::NPUTrace::getTrace();
-      if (C10_UNLIKELY(trigger)) {
-        trigger->traceNpuEventCreation(reinterpret_cast<uintptr_t>(npu_event));
-      }
-#endif
     }
     NPU_CHECK_ERROR(
         c10_npu::queue::LaunchRecordEventTask(npu_event, npu_stream));

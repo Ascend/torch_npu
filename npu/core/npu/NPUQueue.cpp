@@ -319,15 +319,7 @@ bool Repository::ReadQueue() {
   }
 
   __sync_synchronize();
-#ifndef BUILD_LIBTORCH
-  at_npu::native::NpuUtils::ProfReportMarkDataToNpuProfiler(
-      2, datas, read_idx.idx);
   auto ret = manager().Call(datas, read_idx.idx);
-  at_npu::native::NpuUtils::ProfReportMarkDataToNpuProfiler(
-      3, datas, read_idx.idx);
-#else
-  auto ret = manager().Call(datas, read_idx.idx);
-#endif
   if (ret != 0) {
     repo_error =
         get_func_error_msg(manager().getCurrentParams(datas, read_idx.idx));

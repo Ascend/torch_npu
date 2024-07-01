@@ -5,9 +5,7 @@
 #include "npu/framework/NPUDefine.h"
 #include "npu/framework/utils/NpuUtils.h"
 #include "npu/acl/include/acl/acl_rt.h"
-#ifndef BUILD_LIBTORCH
-#include "torch_npu/csrc/sanitizer/NPUTrace.h"
-#endif
+
 namespace c10_npu {
 namespace queue {
 std::atomic<uint64_t> QueueParas::g_correlation_id{0};
@@ -82,16 +80,8 @@ void AsyncCopyTask::LaunchCopyTask() {
   RECORD_FUNCTION(
       CopyParas::COPY_PARAS_MAP[copyParam_.kind], std::vector<c10::IValue>({}));
   if (c10_npu::option::OptionsManager::CheckQueueEnable()) {
-#ifndef BUILD_LIBTORCH
-    at_npu::native::NpuUtils::ProfReportMarkDataToNpuProfiler(
-        0, CopyParas::COPY_PARAS_MAP[copyParam_.kind]);
-#endif
     QueueParas params(ASYNC_MEMCPY, sizeof(CopyParas), &copyParam_);
     c10_npu::enCurrentNPUStream(&params);
-#ifndef BUILD_LIBTORCH
-    at_npu::native::NpuUtils::ProfReportMarkDataToNpuProfiler(
-        1, CopyParas::COPY_PARAS_MAP[copyParam_.kind], params.correlation_id);
-#endif
   } else {
     c10_npu::NPUStream stream = c10_npu::getCurrentNPUStream();
     NPU_CHECK_ERROR(aclrtMemcpyAsync(
@@ -119,10 +109,6 @@ void EventTask::LaunchRecordTask(c10_npu::NPUStream npuStream) {
   RECORD_FUNCTION(
       EventParas::EVENT_PARAS_MAP[RECORD_EVENT], std::vector<c10::IValue>({}));
   if (c10_npu::option::OptionsManager::CheckQueueEnable()) {
-#ifndef BUILD_LIBTORCH
-    at_npu::native::NpuUtils::ProfReportMarkDataToNpuProfiler(
-        0, EventParas::EVENT_PARAS_MAP[RECORD_EVENT]);
-#endif
     c10_npu::NPUStream currentStream = c10_npu::getCurrentNPUStream();
     c10_npu::setCurrentNPUStream(npuStream);
     QueueParas params(RECORD_EVENT, sizeof(EventParas), &eventParam_);
@@ -133,10 +119,6 @@ void EventTask::LaunchRecordTask(c10_npu::NPUStream npuStream) {
     ASCEND_LOGI(
         "Event: LaunchRecordTask is successfully executed, event=%p",
         eventParam_.event);
-#ifndef BUILD_LIBTORCH
-    at_npu::native::NpuUtils::ProfReportMarkDataToNpuProfiler(
-        1, EventParas::EVENT_PARAS_MAP[RECORD_EVENT], params.correlation_id);
-#endif
   } else {
     NPU_CHECK_ERROR(aclrtRecordEvent(eventParam_.event, npuStream));
     ASCEND_LOGI(
@@ -149,15 +131,6 @@ void EventTask::LaunchRecordTask(c10_npu::NPUStream npuStream) {
 aclError LaunchRecordEventTask(aclrtEvent event, c10_npu::NPUStream npuStream) {
   EventTask recordTask(event);
   recordTask.LaunchRecordTask(npuStream);
-#ifndef BUILD_LIBTORCH
-  const c10_npu::impl::PyCallbackTrigger* trigger =
-      c10_npu::impl::NPUTrace::getTrace();
-  if (C10_UNLIKELY(trigger)) {
-    trigger->traceNpuEventRecord(
-        reinterpret_cast<uintptr_t>(event),
-        reinterpret_cast<uintptr_t>(npuStream.stream(false)));
-  }
-#endif
   return ACL_ERROR_NONE;
 }
 
@@ -165,10 +138,6 @@ void EventTask::LaunchWaitTask(c10_npu::NPUStream npuStream) {
   RECORD_FUNCTION(
       EventParas::EVENT_PARAS_MAP[WAIT_EVENT], std::vector<c10::IValue>({}));
   if (c10_npu::option::OptionsManager::CheckQueueEnable()) {
-#ifndef BUILD_LIBTORCH
-    at_npu::native::NpuUtils::ProfReportMarkDataToNpuProfiler(
-        0, EventParas::EVENT_PARAS_MAP[WAIT_EVENT]);
-#endif
     c10_npu::NPUStream currentStream = c10_npu::getCurrentNPUStream();
     c10_npu::setCurrentNPUStream(npuStream);
     QueueParas params(WAIT_EVENT, sizeof(EventParas), &eventParam_);
@@ -177,10 +146,6 @@ void EventTask::LaunchWaitTask(c10_npu::NPUStream npuStream) {
     ASCEND_LOGI(
         "Event: LaunchWaitTask is successfully executed, event=%p",
         eventParam_.event);
-#ifndef BUILD_LIBTORCH
-    at_npu::native::NpuUtils::ProfReportMarkDataToNpuProfiler(
-        1, EventParas::EVENT_PARAS_MAP[WAIT_EVENT], params.correlation_id);
-#endif
   } else {
     NPU_CHECK_ERROR(aclrtStreamWaitEvent(npuStream, eventParam_.event));
     ASCEND_LOGI(
@@ -193,15 +158,6 @@ void EventTask::LaunchWaitTask(c10_npu::NPUStream npuStream) {
 aclError LaunchWaitEventTask(aclrtEvent event, c10_npu::NPUStream npuStream) {
   EventTask waitTask(event);
   waitTask.LaunchWaitTask(npuStream);
-#ifndef BUILD_LIBTORCH
-  const c10_npu::impl::PyCallbackTrigger* trigger =
-      c10_npu::impl::NPUTrace::getTrace();
-  if (C10_UNLIKELY(trigger)) {
-    trigger->traceNpuEventWait(
-        reinterpret_cast<uintptr_t>(event),
-        reinterpret_cast<uintptr_t>(npuStream.stream(false)));
-  }
-#endif
   return ACL_ERROR_NONE;
 }
 
@@ -210,21 +166,11 @@ void EventTask::LaunchLazyDestroyTask(c10::DeviceIndex device_index) {
       EventParas::EVENT_PARAS_MAP[LAZY_DESTROY_EVENT],
       std::vector<c10::IValue>({}));
   if (c10_npu::option::OptionsManager::CheckQueueEnable()) {
-#ifndef BUILD_LIBTORCH
-    at_npu::native::NpuUtils::ProfReportMarkDataToNpuProfiler(
-        0, EventParas::EVENT_PARAS_MAP[LAZY_DESTROY_EVENT]);
-#endif
     QueueParas params(LAZY_DESTROY_EVENT, sizeof(EventParas), &eventParam_);
     c10_npu::enCurrentNPUStream(&params, device_index);
     ASCEND_LOGI(
         "Event: LaunchLazyDestroyTask is successfully executed, event=%p",
         eventParam_.event);
-#ifndef BUILD_LIBTORCH
-    at_npu::native::NpuUtils::ProfReportMarkDataToNpuProfiler(
-        1,
-        EventParas::EVENT_PARAS_MAP[LAZY_DESTROY_EVENT],
-        params.correlation_id);
-#endif
   } else {
     NPU_CHECK_ERROR(
         c10_npu::NPUEventManager::GetInstance().LazyDestroy(eventParam_.event),
@@ -236,13 +182,6 @@ aclError LaunchLazyDestroyEventTask(
     aclrtEvent event,
     c10::DeviceIndex device_index) {
   EventTask lazyDestroyTask(event);
-#ifndef BUILD_LIBTORCH
-  const c10_npu::impl::PyCallbackTrigger* trigger =
-      c10_npu::impl::NPUTrace::getTrace();
-  if (C10_UNLIKELY(trigger)) {
-    trigger->traceNpuEventDeletion(reinterpret_cast<uintptr_t>(event));
-  }
-#endif
   lazyDestroyTask.LaunchLazyDestroyTask(device_index);
   return ACL_ERROR_NONE;
 }

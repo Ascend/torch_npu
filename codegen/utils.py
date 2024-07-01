@@ -238,7 +238,6 @@ def get_torchgen_dir():
         return os.path.dirname(frame_summary.filename)
 
 
-# This function is to add profiler information for each operator, which is later extended in the official
 def gen_unstructured(
     self, f: NativeFunction, g: Optional[NativeFunctionsGroup] = None
 ) -> Optional[str]:
@@ -334,11 +333,6 @@ return {self_arg_name};
                 )
 
             device_guard = "// DeviceGuard omitted"  # default
-            record_func_def = """
-#ifndef BUILD_LIBTORCH
-torch_npu::profiler::NPURecordFunction guard;
-#endif
-"""
             if self.backend_index.device_guard:
                 has_tensor_options = any(
                     isinstance(a, TensorOptionsArguments)
@@ -416,7 +410,6 @@ namespace {{
 {device_check}
 
 {device_guard}
-{record_func_def}
 {return_code}
 }}
 

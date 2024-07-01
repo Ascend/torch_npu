@@ -8,10 +8,8 @@
 #include "npu/framework/OpCmdHelper.h"
 #include "npu/framework/OpParamMaker.h"
 #include "npu/framework/aoe/AoeUtils.h"
-#include "npu/framework/interface/HcclInterface.h"
 #include "npu/framework/utils/CalcuOpUtil.h"
 #include "npu/framework/utils/NpuUtils.h"
-#include "torch_npu/csrc/distributed/HCCLUtils.hpp"
 
 #ifndef BUILD_LIBTORCH
 #include <Python.h>
@@ -115,9 +113,6 @@ void SetDeterministic() {
     NPU_CHECK_ERROR(AclrtCtxSetSysParamOpt(
         aclSysParamOpt::ACL_OPT_DETERMINISTIC,
         deterministicAlgorithmsStatus ? 1 : 0));
-    HcclConfigValue configValue = {deterministicAlgorithmsStatus ? 1 : 0};
-    HCCL_CHECK_ERROR(
-        hccl::HcclSetConfig(HcclConfig::HCCL_DETERMINISTIC, configValue));
     deterministicaclnn_oldstatus = deterministicAlgorithmsStatus;
   }
 }

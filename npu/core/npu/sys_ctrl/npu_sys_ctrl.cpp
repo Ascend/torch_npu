@@ -19,7 +19,6 @@
 #include "npu/framework/interface/AclOpCompileInterface.h"
 #include "npu/acl/include/acl/acl_op_compiler.h"
 #include "npu/acl/include/acl/acl_rt.h"
-#include "torch_npu/csrc/toolkit/profiler/common/utils.h"
 #ifdef SUCCESS
 #undef SUCCESS
 #endif
@@ -152,6 +151,17 @@ std::string GetTorchNpuFile() {
 }
 #endif
 
+std::string RealPath(const std::string& path) {
+  if (path.empty() || path.size() > PATH_MAX) {
+    return "";
+  }
+  char realPath[PATH_MAX] = {0};
+  if (realpath(path.c_str(), realPath) == nullptr) {
+    return "";
+  }
+  return std::string(realPath);
+}
+
 std::string GetAclConfigJsonPath() {
 #ifndef BUILD_LIBTORCH
   std::string npu_path = GetTorchNpuFile();
@@ -160,8 +170,7 @@ std::string GetAclConfigJsonPath() {
     return "";
   }
   std::string json_path = npu_path.append("torch_npu/acl.json");
-  std::string json_path_str =
-      torch_npu::toolkit::profiler::Utils::RealPath(json_path);
+  std::string json_path_str = RealPath(json_path);
   if (json_path_str == "") {
     ASCEND_LOGW("this path:%s is not exist!", json_path.c_str());
   }

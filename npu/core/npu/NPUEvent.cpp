@@ -5,9 +5,6 @@
 #include "npu/core/npu/interface/AsyncTaskQueueInterface.h"
 #include "npu/core/npu/register/OptionsManager.h"
 #include "npu/core/npu/sys_ctrl/npu_sys_ctrl.h"
-#ifndef BUILD_LIBTORCH
-#include "torch_npu/csrc/sanitizer/NPUTrace.h"
-#endif
 
 namespace c10_npu {
 
@@ -109,15 +106,6 @@ float NPUEvent::elapsed_time(const NPUEvent& other) const {
   ASCEND_LOGI(
       "Event: aclrtSynchronizeEvent is successfully executed, other.event=%p",
       other.event_);
-#ifndef BUILD_LIBTORCH
-  const c10_npu::impl::PyCallbackTrigger* trigger =
-      c10_npu::impl::NPUTrace::getTrace();
-  if (C10_UNLIKELY(trigger)) {
-    trigger->traceNpuEventSynchronization(reinterpret_cast<uintptr_t>(event_));
-    trigger->traceNpuEventSynchronization(
-        reinterpret_cast<uintptr_t>(other.event_));
-  }
-#endif
   // raise error if either event is recorded but not yet completed
   NPU_CHECK_ERROR(aclrtEventElapsedTime(&time_ms, event_, other.event_));
   return time_ms;
@@ -133,14 +121,6 @@ void NPUEvent::synchronize() const {
     ASCEND_LOGI(
         "Event: aclrtSynchronizeEvent is successfully executed, event=%p",
         event_);
-#ifndef BUILD_LIBTORCH
-    const c10_npu::impl::PyCallbackTrigger* trigger =
-        c10_npu::impl::NPUTrace::getTrace();
-    if (C10_UNLIKELY(trigger)) {
-      trigger->traceNpuEventSynchronization(
-          reinterpret_cast<uintptr_t>(event_));
-    }
-#endif
   }
 }
 
@@ -151,13 +131,6 @@ void NPUEvent::createEvent(c10::DeviceIndex device_index) {
   ASCEND_LOGI(
       "Event: aclrtCreateEventWithFlag is successfully executed, event=%p",
       event_);
-#ifndef BUILD_LIBTORCH
-  const c10_npu::impl::PyCallbackTrigger* trigger =
-      c10_npu::impl::NPUTrace::getTrace();
-  if (C10_UNLIKELY(trigger)) {
-    trigger->traceNpuEventCreation(reinterpret_cast<uintptr_t>(event_));
-  }
-#endif
   is_created_ = true;
 }
 

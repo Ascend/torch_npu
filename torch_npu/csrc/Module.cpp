@@ -8,16 +8,10 @@
 #include "npu/core/npu/THNPUCachingHostAllocator.h"
 #include "npu/core/npu/npu_log.h"
 #include "npu/core/npu/sys_ctrl/npu_sys_ctrl.h"
-#include "torch_npu/csrc/distributed/Init.h"
-#include "torch_npu/csrc/npu/DataParallelComm.h"
 #include "torch_npu/csrc/npu/Event.h"
 #include "torch_npu/csrc/npu/Module.h"
-#include "torch_npu/csrc/profiler/init.h"
 #include "torch_npu/csrc/utils/AutocastMode.h"
 #include "torch_npu/csrc/utils/TensorType.h"
-#ifndef BUILD_LIBTORCH
-#include "torch_npu/csrc/sanitizer/NPUTrace.h"
-#endif
 
 PyObject* module;
 
@@ -60,10 +54,6 @@ PyObject* THPModule_npu_shutdown(PyObject* /* unused */) {
     ASCEND_LOGE("NPU shutdown synchronize device failed.");
   }
 
-  ASCEND_LOGI("NPU shutdown ReleaseHcclCommList.");
-  torch_npu::data_parallel::ReleaseHcclCommList();
-  ASCEND_LOGI("NPU shutdown ReleaseHcclCommList success.");
-
   THNPUCachingHostAllocator_emptyCache();
   try {
     ASCEND_LOGI("NPU shutdown NPUCachingAllocator emptyCache.");
@@ -92,24 +82,6 @@ static PyMethodDef TorchNpuMethods[] = {
      nullptr},
     {nullptr, nullptr, 0, nullptr}};
 
-#ifndef BUILD_LIBTORCH
-PyObject* THPModule_sanitizer_enable(PyObject* /* unused */, PyObject* args) {
-  int mode;
-  if (!PyArg_ParseTuple(args, "i", &mode)) {
-    return NULL;
-  }
-  c10_npu::impl::activateNPUTrace(mode);
-  Py_RETURN_NONE;
-}
-
-static PyMethodDef TorchSanitizerMethods[] = {
-    {"_activate_npu_trace",
-     (PyCFunction)THPModule_sanitizer_enable,
-     METH_VARARGS,
-     nullptr},
-    {nullptr, nullptr, 0, nullptr}};
-#endif
-
 void THNPStream_init(PyObject* module);
 void THNPEvent_init(PyObject* module);
 PyMethodDef* THNPModule_get_methods();
@@ -121,12 +93,7 @@ PyObject* initModule() {
   at::internal::lazy_init_num_threads();
 
   AddPyMethodDefs(methods, TorchNpuMethods);
-#ifndef BUILD_LIBTORCH
-  AddPyMethodDefs(methods, TorchSanitizerMethods);
-#endif
   AddPyMethodDefs(methods, THNPModule_get_methods());
-  AddPyMethodDefs(methods, torch_npu::profiler::profiler_functions());
-  AddPyMethodDefs(methods, torch_npu::distributed::python_functions());
   AddPyMethodDefs(methods, torch_npu::utils::npu_extension_functions());
   AddPyMethodDefs(methods, torch_npu::autocast::autocast_mode_functions());
   static struct PyModuleDef torchnpu_module = {
@@ -145,7 +112,6 @@ PyObject* initModule() {
   RegisterNPUDeviceMemories(module);
   BindGetDeviceMemories(module);
   RegisterNpuPluggableAllocator(module);
-  initCommMethods();
   torch::installCapturedTracebackPython();
   return module;
 }

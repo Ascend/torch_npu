@@ -5,9 +5,6 @@
 #include "npu/core/npu/register/FunctionLoader.h"
 #include "npu/core/npu/register/OptionsManager.h"
 #include "npu/acl/include/acl/acl_rt.h"
-#ifndef BUILD_LIBTORCH
-#include "torch_npu/csrc/sanitizer/NPUTrace.h"
-#endif
 
 namespace c10_npu {
 
@@ -158,13 +155,6 @@ aclError AclrtCreateStreamWithConfig(
     ret = aclrtCreateStream(stream);
   }
   if (ret == ACL_SUCCESS && stream != nullptr) {
-#ifndef BUILD_LIBTORCH
-    const c10_npu::impl::PyCallbackTrigger* trigger =
-        c10_npu::impl::NPUTrace::getTrace();
-    if (C10_UNLIKELY(trigger)) {
-      trigger->traceNpuStreamCreation(reinterpret_cast<uintptr_t>(*stream));
-    }
-#endif
     if (!c10_npu::IsSupportInfNan()) {
       TORCH_CHECK(
           AclrtSetStreamOverflowSwitch(*stream, 1) == ACL_SUCCESS,
@@ -463,13 +453,6 @@ aclError AclrtSynchronizeStreamWithTimeout(aclrtStream stream) {
           SyncDebugMode::L_DISABLED)) {
     c10_npu::warn_or_error_on_sync();
   }
-#ifndef BUILD_LIBTORCH
-  const c10_npu::impl::PyCallbackTrigger* trigger =
-      c10_npu::impl::NPUTrace::getTrace();
-  if (C10_UNLIKELY(trigger)) {
-    trigger->traceNpuStreamSynchronization(reinterpret_cast<uintptr_t>(stream));
-  }
-#endif
   typedef aclError (*AclrtSynchronizeStreamWithTimeout)(aclrtStream, int32_t);
   static AclrtSynchronizeStreamWithTimeout func =
       (AclrtSynchronizeStreamWithTimeout)GET_FUNC(

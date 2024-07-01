@@ -178,29 +178,23 @@ endif()
 set(ATEN_SRCS)
 set(CORE_SRCS)
 set(FRAMEWORK_SRCS)
-set(DIST_SRCS)
 set(NPU_SRCS)
-set(PROF_SRCS)
 set(UTILS_SRCS)
-set(SAN_SRCS)
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/npu/acl/libs)
 add_subdirectory(${PROJECT_SOURCE_DIR}/aten)
 add_subdirectory(${PROJECT_SOURCE_DIR}/npu/core)
 add_subdirectory(${PROJECT_SOURCE_DIR}/npu/framework)
 
-add_subdirectory(${TORCHNPU_ROOT}/distributed)
 add_subdirectory(${TORCHNPU_ROOT}/npu)
-add_subdirectory(${TORCHNPU_ROOT}/profiler)
 add_subdirectory(${TORCHNPU_ROOT}/utils)
-add_subdirectory(${TORCHNPU_ROOT}/sanitizer)
 
 set(OPS_PLUGIN_SRCS)
 # Add subdirectory of op-plugin
 include_directories(${PROJECT_SOURCE_DIR}/third_party/op-plugin)
 add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/op-plugin/op_plugin)
 
-set(CPP_SRCS ${ATEN_SRCS} ${CORE_SRCS} ${OPS_PLUGIN_SRCS} ${DIST_SRCS} ${FRAMEWORK_SRCS} ${NPU_SRCS} ${PROF_SRCS} ${UTILS_SRCS} ${SAN_SRCS} ${TORCHNPU_ROOT}/Module.cpp)
+set(CPP_SRCS ${ATEN_SRCS} ${CORE_SRCS} ${OPS_PLUGIN_SRCS} ${FRAMEWORK_SRCS} ${NPU_SRCS} ${UTILS_SRCS} ${TORCHNPU_ROOT}/Module.cpp)
 
 link_directories(${PYTORCH_INSTALL_DIR}/lib)
 link_directories(${PROJECT_SOURCE_DIR}/npu/acl/libs)
@@ -225,9 +219,6 @@ endif()
 
 target_compile_options(${PLUGIN_NAME} PRIVATE "-DC10_BUILD_MAIN_LIB")
 install(TARGETS ${PLUGIN_NAME} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-
-add_subdirectory(${TORCHNPU_ROOT}/toolkit)
-target_link_libraries(${PLUGIN_NAME} PUBLIC npu_profiler)
 
 if (DEFINED BUILD_GTEST)
   enable_testing()

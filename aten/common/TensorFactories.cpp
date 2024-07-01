@@ -29,9 +29,6 @@
 #include "npu/framework/StorageDescHelper.h"
 #include "npu/framework/contiguous/ContiguousOpt.h"
 #include "npu/framework/utils/OpAdapter.h"
-#ifndef BUILD_LIBTORCH
-#include "torch_npu/csrc/profiler/utils.h"
-#endif
 
 namespace at_npu {
 namespace native {
@@ -108,9 +105,6 @@ at::Tensor NPUNativeFunctions::empty(
     c10::optional<c10::Device> device_opt,
     c10::optional<bool> pin_memory_opt,
     c10::optional<c10::MemoryFormat> memory_format_opt) {
-#ifndef BUILD_LIBTORCH
-  torch_npu::profiler::NPURecordFunction profiler_guard;
-#endif
   RECORD_FUNCTION("empty_tensor", std::vector<c10::IValue>({}));
   auto device_ = c10::device_or_default(device_opt);
   AT_ASSERT(
@@ -304,9 +298,6 @@ at::Tensor NPUNativeFunctions::empty_with_format(
     c10::optional<c10::Device> device_opt,
     c10::optional<bool> pin_memory_opt,
     int64_t dst_format) {
-#ifndef BUILD_LIBTORCH
-  torch_npu::profiler::NPURecordFunction profiler_guard;
-#endif
   RECORD_FUNCTION("empty_tensor", std::vector<c10::IValue>({}));
   auto device_ = c10::device_or_default(device_opt);
   torch_npu::utils::torch_check_npu(device_);

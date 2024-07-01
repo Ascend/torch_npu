@@ -47,30 +47,6 @@ class NpuUtils {
   static bool check_5d_5d_match(const at::Tensor& tensor);
   static bool IsOomError(aclError ret, int index);
   static void check_1d(const at::Tensor& t, const char* arg, const char* fn);
-#ifndef BUILD_LIBTORCH
-  static void ProfReportMarkDataToNpuProfiler(
-      uint32_t category,
-      const std::string& data,
-      uint64_t correlation_id = 0);
-  static void ProfReportMarkDataToNpuProfiler(
-      uint32_t category,
-      void* data,
-      size_t offset);
-#endif
-
- private:
-  using DqueueCall =
-      void (*)(c10_npu::queue::QueueParas* para, uint32_t category);
-  static void DqueueCompileExcute(
-      c10_npu::queue::QueueParas* para,
-      uint32_t category);
-  static void DqueueAnyncMemcpy(
-      c10_npu::queue::QueueParas* para,
-      uint32_t category);
-  static void DqueueEvent(c10_npu::queue::QueueParas* para, uint32_t category);
-  static void DqueueCompileExcuteBs(
-      c10_npu::queue::QueueParas* para,
-      uint32_t category);
 };
 
 const std::string AclDateTypeToString(aclDataType descDType);

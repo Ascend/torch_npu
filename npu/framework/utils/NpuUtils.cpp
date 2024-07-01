@@ -15,9 +15,6 @@
 #include "npu/framework/utils/NpuUtils.h"
 #include "npu/framework/utils/OpAdapter.h"
 #include "npu/framework/utils/OpPreparation.h"
-#ifndef BUILD_LIBTORCH
-#include "torch_npu/csrc/profiler/npu_profiler.h"
-#endif
 
 namespace at_npu {
 namespace native {
@@ -283,77 +280,6 @@ void NpuUtils::check_1d(const at::Tensor& t, const char* arg, const char* fn) {
       "-D",
       OPS_ERROR(ErrCode::PARAM));
 }
-
-#ifndef BUILD_LIBTORCH
-
-void NpuUtils::ProfReportMarkDataToNpuProfiler(
-    uint32_t category,
-    const std::string& data,
-    uint64_t correlation_id) {
-  if (data.empty()) {
-    return;
-  }
-  if (torch_npu::profiler::profDataReportEnable().load(
-          std::memory_order_relaxed)) {
-    torch_npu::profiler::reportMarkDataToNpuProfiler(
-        category, data, correlation_id);
-  }
-}
-
-void NpuUtils::DqueueCompileExcute(
-    c10_npu::queue::QueueParas* para,
-    uint32_t category) {
-  auto param_val = static_cast<at_npu::native::ExecuteParas*>(para->paramVal);
-  torch_npu::profiler::reportMarkDataToNpuProfiler(
-      category, std::string(param_val->opType), para->correlation_id);
-}
-void NpuUtils::DqueueEvent(
-    c10_npu::queue::QueueParas* para,
-    uint32_t category) {
-  torch_npu::profiler::reportMarkDataToNpuProfiler(
-      category,
-      c10_npu::queue::EventParas::EVENT_PARAS_MAP[para->paramType],
-      para->correlation_id);
-}
-void NpuUtils::DqueueAnyncMemcpy(
-    c10_npu::queue::QueueParas* para,
-    uint32_t category) {
-  auto param_val = static_cast<c10_npu::queue::CopyParas*>(para->paramVal);
-  torch_npu::profiler::reportMarkDataToNpuProfiler(
-      category,
-      c10_npu::queue::CopyParas::COPY_PARAS_MAP[param_val->kind],
-      para->correlation_id);
-}
-
-void NpuUtils::ProfReportMarkDataToNpuProfiler(
-    uint32_t category,
-    void* data,
-    size_t offset) {
-  if (C10_UNLIKELY(!data)) {
-    return;
-  }
-  if (torch_npu::profiler::profDataReportEnable().load(
-          std::memory_order_relaxed)) {
-    static const std::map<int64_t, DqueueCall> DEQUEUE_CALL_FUNC_MAP{
-        {c10_npu::queue::COMPILE_AND_EXECUTE, &DqueueCompileExcute},
-        {c10_npu::queue::ASYNC_MEMCPY, &DqueueAnyncMemcpy},
-        {c10_npu::queue::RECORD_EVENT, &DqueueEvent},
-        {c10_npu::queue::WAIT_EVENT, &DqueueEvent},
-        {c10_npu::queue::LAZY_DESTROY_EVENT, &DqueueEvent},
-        {c10_npu::queue::RESET_EVENT, &DqueueEvent},
-    };
-    void* cur_addr = (uint8_t*)data +
-        (sizeof(c10_npu::queue::QueueParas) +
-         at_npu::native::MAX_PARAS_BYTE_SIZE) *
-            offset;
-    auto cur_param = static_cast<c10_npu::queue::QueueParas*>(cur_addr);
-    auto entry = DEQUEUE_CALL_FUNC_MAP.find(cur_param->paramType);
-    if (entry != DEQUEUE_CALL_FUNC_MAP.end()) {
-      entry->second(cur_param, category);
-    }
-  }
-}
-#endif
 
 const std::string AclDateTypeToString(aclDataType descDType) {
   std::map<const aclDataType, const std::string> ACL_TYPE_TO_STRING_TYPE_MAP = {

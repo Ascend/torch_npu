@@ -4,9 +4,6 @@
 #include <unordered_map>
 #include "npu/core/npu/NPUStream.h"
 #include "npu/core/npu/register/OptionsManager.h"
-#ifndef BUILD_LIBTORCH
-#include "torch_npu/csrc/sanitizer/NPUTrace.h"
-#endif
 
 namespace c10_npu {
 
@@ -149,13 +146,6 @@ aclError SynchronizeUsedDevices() {
     if (acl_ret != ACL_ERROR_NONE) {
       return acl_ret;
     }
-#ifndef BUILD_LIBTORCH
-    const c10_npu::impl::PyCallbackTrigger* trigger =
-        c10_npu::impl::NPUTrace::getTrace();
-    if (C10_UNLIKELY(trigger)) {
-      trigger->traceNpuDeviceSynchronization();
-    }
-#endif
   }
   NPU_CHECK_ERROR(SetDevice(cur_device));
   return ACL_ERROR_NONE;
@@ -182,13 +172,6 @@ void set_device(c10::DeviceIndex device) {
 
 void device_synchronize() {
   NPU_CHECK_ERROR(aclrtSynchronizeDevice());
-#ifndef BUILD_LIBTORCH
-  const c10_npu::impl::PyCallbackTrigger* trigger =
-      c10_npu::impl::NPUTrace::getTrace();
-  if (C10_UNLIKELY(trigger)) {
-    trigger->traceNpuDeviceSynchronization();
-  }
-#endif
 }
 
 int ExchangeDevice(int device) {
