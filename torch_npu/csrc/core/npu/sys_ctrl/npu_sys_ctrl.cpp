@@ -12,6 +12,7 @@
 #include "torch_npu/csrc/core/npu/npu_log.h"
 #include "torch_npu/csrc/core/npu/interface/AclInterface.h"
 #include "torch_npu/csrc/core/npu/NPUCachingAllocator.h"
+#include "torch_npu/csrc/core/npu/NPUExpandableSegment.h"
 #include "torch_npu/csrc/core/npu/NPUStream.h"
 #include "torch_npu/csrc/core/npu/NpuVariables.h"
 #include "torch_npu/csrc/core/npu/register/OptionRegister.h"
@@ -192,7 +193,7 @@ NpuSysCtrl::NpuSysCtrl() : repeat_init_acl_flag_(true), init_flag_(false), devic
       std::cout << "hahamalloc" << " " << count << std::endl;
         return aclrtMalloc(devPtr, size, aclrtMemMallocPolicy::ACL_MEM_MALLOC_HUGE_FIRST);
     };
-    std::function<int (void*)> bfree = [](void* devPtr) -> int {
+    auto bfree = [](void* devPtr) -> int {
       // todo
       static int count = 0;
       count++;
@@ -200,6 +201,15 @@ NpuSysCtrl::NpuSysCtrl() : repeat_init_acl_flag_(true), init_flag_(false), devic
         return aclrtFree(devPtr);
     };
     c10_npu::NPUCachingAllocator::initAllocFree(bfree, bmalloc);
+
+    auto currentStream = [](c10::DeviceIndex device_index) {
+      std::cout << "hahacurrentStream" << std::endl; // todo
+      return c10_npu::getCurrentNPUStreamNoWait(device_index);
+    };
+    auto createExpandableSegment = [](int device, void* stream, size_t size) {
+      return new c10_npu::NPUCachingAllocator::ExpandableSegmentImpl(device, stream, size);
+    };
+    c10_npu::NPUCachingAllocator::initother(currentStream, createExpandableSegment);
     ASCEND_LOGD("Npu caching allocator initialize successfully");
 
     // There's no need to call c10_npu::GetDevice at the start of the process, because device 0 may not be needed

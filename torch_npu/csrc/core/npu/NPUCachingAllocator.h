@@ -1,10 +1,10 @@
 #pragma once
 
 #include <c10/core/Allocator.h>
+#include <c10/core/Stream.h>
 #include <c10/util/Registry.h>
 #include <c10/util/SmallVector.h>
 #include "torch_npu/csrc/core/npu/NPUMacros.h"
-#include "torch_npu/csrc/core/npu/NPUStream.h"
 #include "torch_npu/csrc/core/npu/register/OptionsManager.h"
 
 #include <atomic>
@@ -111,7 +111,7 @@ struct BlockInfo {
 struct SegmentInfo {
   int64_t device = 0;
   int64_t address = 0;
-  aclrtStream stream = 0;
+  void* stream = 0;
   int64_t total_size = 0;
   int64_t requested_size = 0;
   int64_t allocated_size = 0;
@@ -146,7 +146,7 @@ struct TraceEntry {
       int device,
       int64_t addr,
       size_t size,
-      aclrtStream stream,
+      void* stream,
       std::shared_ptr<c10::GatheredContext> context = nullptr)
       : action_(action),
         device_(device),
@@ -158,7 +158,7 @@ struct TraceEntry {
   int device_;
   int64_t addr_; // for OOM, this is the amount of free bytes reported by cuda
   std::shared_ptr<c10::GatheredContext> context_;
-  aclrtStream stream_;
+  void* stream_;
   int64_t size_;
 };
 
@@ -180,10 +180,24 @@ using OutOfMemoryObserver = std::function<void(
     int64_t device_total,
     int64_t device_free)>;
 
+struct SegmentRange {
+  char* ptr;
+  size_t size;
+  SegmentRange(void* p, size_t s) : ptr(static_cast<char*>(p)), size(s) {}
+};
+
+class ExpandableSegment {
+ public:
+  virtual SegmentRange map(SegmentRange range) = 0;
+  virtual SegmentRange unmap(SegmentRange range) = 0;
+  virtual size_t size() const = 0;
+  virtual char* ptr() const = 0;
+};
+
 class NPUAllocator : public c10::Allocator {
  public:
   virtual void* raw_alloc(size_t nbytes) = 0;
-  virtual void* raw_alloc_with_stream(size_t nbytes, aclrtStream stream) = 0;
+  virtual void* raw_alloc_with_stream(size_t nbytes, void* stream) = 0;
   virtual void raw_delete(void* ptr) = 0;
   virtual void init(int device_count) = 0;
   virtual bool initialized() = 0;
@@ -194,12 +208,8 @@ class NPUAllocator : public c10::Allocator {
       size_t* cachedAndFree,
       size_t* largestBlock) = 0;
   virtual void* getBaseAllocation(void* ptr, size_t* size) = 0;
-  virtual void recordStream(
-      const c10::DataPtr& ptr,
-      c10_npu::NPUStream stream) = 0;
-  virtual void eraseStream(
-      const c10::DataPtr& ptr,
-      c10_npu::NPUStream stream) = 0;
+  virtual void recordStream(const c10::DataPtr& ptr, c10::Stream stream) = 0;
+  virtual void eraseStream(const c10::DataPtr& ptr, c10::Stream stream) = 0;
   virtual DeviceStats getDeviceStats(int device) = 0;
   virtual void resetAccumulatedStats(int device) = 0;
   virtual void resetPeakStats(int device) = 0;
@@ -229,7 +239,9 @@ class NPUAllocator : public c10::Allocator {
 C10_NPU_API extern std::atomic<NPUAllocator*> allocator;
 C10_NPU_API extern std::function<int(void*)> bclrtFree;
 C10_NPU_API extern std::function<int(void**, size_t)> bclrtMalloc;
-
+C10_NPU_API extern std::function<void*(c10::DeviceIndex)> getCurrentStream;
+C10_NPU_API extern std::function<ExpandableSegment*(int, void*, size_t)>
+    createExpandableSegment;
 inline NPUAllocator* get() {
   return allocator.load();
 }
@@ -239,7 +251,7 @@ inline void* raw_alloc(size_t nbytes) {
   return get()->raw_alloc(nbytes);
 }
 
-inline void* raw_alloc_with_stream(size_t nbytes, aclrtStream stream) {
+inline void* raw_alloc_with_stream(size_t nbytes, void* stream) {
   return get()->raw_alloc_with_stream(nbytes, stream);
 }
 
@@ -258,6 +270,14 @@ inline void initAllocFree(
   bclrtMalloc = bmalloc;
 }
 
+inline void initother(
+    std::function<void*(c10::DeviceIndex)> currentStream,
+    std::function<ExpandableSegment*(int, void*, size_t)>
+        createExpandableSegment_) {
+  getCurrentStream = currentStream;
+  createExpandableSegment = createExpandableSegment_;
+}
+
 inline void setMemoryFraction(double fraction, int device) {
   return get()->setMemoryFraction(fraction, device);
 }
@@ -274,11 +294,11 @@ inline void* getBaseAllocation(void* ptr, size_t* size) {
   return get()->getBaseAllocation(ptr, size);
 }
 
-inline void recordStream(const c10::DataPtr& ptr, c10_npu::NPUStream stream) {
+inline void recordStream(const c10::DataPtr& ptr, c10::Stream stream) {
   return get()->recordStream(ptr, stream);
 }
 
-inline void eraseStream(const c10::DataPtr& ptr, c10_npu::NPUStream stream) {
+inline void eraseStream(const c10::DataPtr& ptr, c10::Stream stream) {
   return get()->eraseStream(ptr, stream);
 }
 

@@ -17,7 +17,6 @@
 #include "third_party/acl/inc/acl/acl_base.h"
 #include "third_party/acl/inc/acl/acl_rt.h"
 #include "torch_npu/csrc/core/npu/NPUCachingAllocator.h"
-#include "torch_npu/csrc/core/npu/NPUEvent.h"
 #include "torch_npu/csrc/core/npu/NPUGuard.h"
 #include "torch_npu/csrc/core/npu/interface/AsyncTaskQueueInterface.h"
 #include "torch_npu/csrc/core/npu/sys_ctrl/npu_sys_ctrl.h"
@@ -61,7 +60,7 @@ C10_DEFINE_REGISTRY(FreeNPUMemoryCallbacksRegistry, FreeMemoryCallback);
 // work.
 //
 namespace {
-using stream_set = ska::flat_hash_set<c10_npu::NPUStream>;
+using stream_set = ska::flat_hash_set<c10::Stream>;
 
 constexpr size_t kMinBlockSize =
     512; // all sizes are rounded to at least 512 bytes
@@ -131,11 +130,9 @@ struct BlockPool {
         is_small(small) {}
 };
 
-struct ExpandableSegment;
-
 struct Block {
   int device; // npu
-  aclrtStream stream; // allocation stream
+  void* stream; // allocation stream
   stream_set stream_uses; // streams on which the block was used
   size_t size; // block size in bytes
   size_t requested_size; // memory originally requested
@@ -152,7 +149,7 @@ struct Block {
   int event_count; // number of outstanding NPU events
   int gc_count{0}; // counter for prioritizing older / less useful blocks for
                    // garbage collection
-  ExpandableSegment* expandable_segment_{nullptr};
+  ExpandableSegment* expandable_segment_ = nullptr;
 
   std::shared_ptr<c10::GatheredContext> context_when_allocated;
   // only set for the first block in the segment (when prev == null)
@@ -161,7 +158,7 @@ struct Block {
   // memory out from our cache.
   std::shared_ptr<c10::GatheredContext> context_when_segment_allocated;
 
-  Block(int device, aclrtStream stream, size_t size, BlockPool* pool, void* ptr)
+  Block(int device, void* stream, size_t size, BlockPool* pool, void* ptr)
       : device(device),
         stream(stream),
         stream_uses(),
@@ -176,7 +173,7 @@ struct Block {
         gc_count(0) {}
 
   // constructor for search key
-  Block(int device, aclrtStream stream, size_t size)
+  Block(int device, void* stream, size_t size)
       : device(device),
         stream(stream),
         stream_uses(),
@@ -206,12 +203,6 @@ struct Block {
     }
     next = after;
   }
-};
-
-struct SegmentRange {
-  char* ptr;
-  size_t size;
-  SegmentRange(void* p, size_t s) : ptr(static_cast<char*>(p)), size(s) {}
 };
 
 /*
@@ -284,178 +275,6 @@ However, it is possible to temporarily disable (expandable_segments:False) the
 bevhavior for allocator tensors that need to be used cross-process.
 */
 
-struct ExpandableSegment {
-  ExpandableSegment(int device, aclrtStream stream, size_t size)
-      : device_(device),
-        stream_(stream),
-        max_handles_(0),
-        // 2MB for small pool, 20MB for large pool
-        segment_size_(size) {
-    size_t device_free;
-    size_t device_total;
-    NPU_CHECK_ERROR(aclrtGetMemInfo(ACL_HBM_MEM, &device_free, &device_total));
-    // we allocate enough address space for 1 1/8 the total memory on the NPU.
-    // This allows for some cases where we have to unmap pages earlier in the
-    // segment to put them at the end.
-    max_handles_ = numSegments(device_total + device_total / 8);
-    NPU_CHECK_ERROR(c10_npu::acl::AclrtReserveMemAddress(
-        &ptr_, segment_size_ * max_handles_, 0, NULL, 1));
-    ASCEND_LOGD(
-        "NPUCachingAllocator malloc by Aclr_tReserveMemAddress: size=%zu",
-        segment_size_ * max_handles_);
-  }
-  // begin must be aligned to segment_size_.
-  // returns the actual range mapped, which may be
-  // greater than requested if size is not aligned to segment_size_.
-  // return size of 0 indicates OOM
-  SegmentRange map(SegmentRange range) {
-    auto begin = segmentLeft(range.ptr);
-    auto end = segmentRight(range.ptr + range.size);
-    TORCH_INTERNAL_ASSERT(
-        ptr() + begin * segment_size_ == range.ptr, PTA_ERROR(ErrCode::PTR));
-    if (begin == end) {
-      return rangeFromHandles(begin, end);
-    }
-    while (end > handles_.size()) {
-      handles_.emplace_back(c10::nullopt);
-    }
-    for (auto i : c10::irange(begin, end)) {
-      TORCH_INTERNAL_ASSERT(!handles_.at(i), PTA_ERROR(ErrCode::VALUE));
-      aclrtDrvMemHandle handle = nullptr;
-      aclrtPhysicalMemProp prop = {};
-      prop.handleType = ACL_MEM_HANDLE_TYPE_NONE;
-      prop.allocationType = ACL_MEM_ALLOCATION_TYPE_PINNED;
-      prop.memAttr = ACL_HBM_MEM_HUGE;
-      prop.location.type = ACL_MEM_LOCATION_TYPE_DEVICE;
-      prop.location.id = device_;
-      prop.reserve = 0;
-      auto status =
-          c10_npu::acl::AclrtMallocPhysical(&handle, segment_size_, &prop, 0);
-      if (status == ACL_ERROR_RT_MEMORY_ALLOCATION) {
-        for (auto j : c10::irange(begin, i)) {
-          auto h = handles_.at(j).value();
-          handles_.at(j) = c10::nullopt;
-          NPU_CHECK_ERROR(c10_npu::acl::AclrtFreePhysical(h));
-        }
-        trimHandles();
-        return rangeFromHandles(begin, begin);
-      }
-      NPU_CHECK_ERROR(status, "aclr_tMallocPhysical");
-      handles_.at(i) = handle;
-    }
-    for (auto i : c10::irange(begin, end)) {
-      NPU_CHECK_ERROR(c10_npu::acl::AclrtMapMem(
-          ptr_ + i * segment_size_,
-          segment_size_,
-          0,
-          handles_.at(i).value(),
-          0));
-    }
-    ASCEND_LOGD("NPUCachingAllocator map: segment_size=%zu", segment_size_);
-    return rangeFromHandles(begin, end);
-  }
-
-  // unmaps all the completely empty segment_size_ segments between
-  // [begin, begin + size), returns the offset where the range begin,
-  // and the actual size unmapped (multiple of segment_size_)
-  SegmentRange unmap(SegmentRange range) {
-    auto begin = segmentRight(range.ptr);
-    auto end = segmentLeft(range.ptr + range.size);
-    if (begin >= end) {
-      return SegmentRange{range.ptr, 0};
-    }
-    unmapHandles(begin, end);
-    return rangeFromHandles(begin, end);
-  }
-
-  char* ptr() const {
-    return (char*)ptr_;
-  }
-
-  size_t size() const {
-    return max_handles_ * segment_size_;
-  }
-
-  ~ExpandableSegment() {
-    forEachAllocatedRange(
-        [&](size_t begin, size_t end) { unmapHandles(begin, end); });
-    NPU_CHECK_ERROR(c10_npu::acl::AclrtReleaseMemAddress(ptr_));
-    ASCEND_LOGD("NPUCachingAllocator free by Aclr_tReleaseMemAddress");
-  }
-
- private:
-  void unmapHandles(size_t begin, size_t end) {
-    // note: unlike aclr_tFree, MemUnmap and MemRelease do
-    // not appear to synchronize in all cases, so we have to wait for the
-    // stream to finish before this memory is truly free.
-
-    // cannot call c10::npu::stream_synchronize because
-    // it might grab the GIL which can lead to a deadlock
-    // Locking order must be GIL -> Allocator Lock
-    NPU_CHECK_ERROR(aclrtSynchronizeStream(stream_));
-#ifndef BUILD_LIBTORCH
-    const c10_npu::impl::PyCallbackTrigger* trigger =
-        c10_npu::impl::NPUTrace::getTrace();
-    if (C10_UNLIKELY(trigger)) {
-      trigger->traceNpuStreamSynchronization(
-          reinterpret_cast<uintptr_t>(stream_));
-    }
-#endif
-    for (auto i : c10::irange(begin, end)) {
-      aclrtDrvMemHandle h = handles_.at(i).value();
-      handles_.at(i) = c10::nullopt;
-      NPU_CHECK_ERROR(c10_npu::acl::AclrtUnmapMem(ptr_ + segment_size_ * i));
-      NPU_CHECK_ERROR(c10_npu::acl::AclrtFreePhysical(h));
-    }
-    ASCEND_LOGD("NPUCachingAllocator unmap: segment_size=%zu", segment_size_);
-    trimHandles();
-  }
-
-  void trimHandles() {
-    while (!handles_.empty() && !handles_.back()) {
-      handles_.pop_back();
-    }
-  }
-
-  void forEachAllocatedRange(std::function<void(size_t, size_t)> fn) {
-    auto start = 0;
-    for (auto i : c10::irange(handles_.size())) {
-      if (handles_.at(i) && (i == 0 || !handles_.at(i - 1))) {
-        start = i;
-      }
-      if (handles_.at(i) && (i + 1 == handles_.size() || !handles_.at(i + 1))) {
-        fn(start, i + 1);
-      }
-    }
-  }
-
-  size_t numSegments(size_t size) {
-    return (size + segment_size_ - 1) / segment_size_;
-  }
-
-  size_t segmentLeft(char* p) {
-    auto size = p - ptr();
-    return size / segment_size_;
-  }
-
-  size_t segmentRight(char* p) {
-    auto size = p - ptr();
-    return numSegments(size);
-  }
-
-  SegmentRange rangeFromHandles(size_t begin, size_t end) {
-    return SegmentRange(
-        ptr() + segment_size_ * begin, segment_size_ * (end - begin));
-  }
-
-  int device_;
-  aclrtStream stream_;
-  void* ptr_{};
-  size_t max_handles_;
-  size_t segment_size_;
-  std::vector<c10::optional<aclrtDrvMemHandle>> handles_;
-};
-
 static bool BlockComparatorSize(const Block* a, const Block* b) {
   if (a->stream != b->stream) {
     return reinterpret_cast<uintptr_t>(a->stream) <
@@ -500,7 +319,7 @@ struct AllocParams {
   AllocParams(
       int device,
       size_t size,
-      aclrtStream stream,
+      void* stream,
       BlockPool* pool,
       size_t alloc_size,
       DeviceStats& stats)
@@ -513,7 +332,7 @@ struct AllocParams {
   int device() const {
     return search_key.device;
   }
-  aclrtStream stream() const {
+  void* stream() const {
     return search_key.stream;
   }
   size_t size() const {
@@ -530,8 +349,7 @@ struct AllocParams {
 
 class EventPool {
  public:
-  using Event = std::
-      unique_ptr<c10_npu::NPUEvent, std::function<void(c10_npu::NPUEvent*)>>;
+  using Event = std::unique_ptr<c10::Event, std::function<void(c10::Event*)>>;
   // Explicit device count
   EventPool() : pools_(c10_npu::device_count()) {}
 
@@ -540,9 +358,9 @@ class EventPool {
     TORCH_INTERNAL_ASSERT(
         device < static_cast<int>(pools_.size()), PTA_ERROR(ErrCode::VALUE));
     auto& pool = pools_[device];
-    auto destructor = [&pool](c10_npu::NPUEvent* event) {
+    auto destructor = [&pool](c10::Event* event) {
       std::lock_guard<std::mutex> g(pool.mutex_);
-      pool.event_pool_.push_back(std::unique_ptr<c10_npu::NPUEvent>(event));
+      pool.event_pool_.push_back(std::unique_ptr<c10::Event>(event));
     };
 
     // Try to acquire an event from the per-device pool.
@@ -557,8 +375,7 @@ class EventPool {
     // otherwise, allocate a new event that will be returned to the pool on
     // destruction.
     return Event(
-        std::make_unique<c10_npu::NPUEvent>(ACL_EVENT_CAPTURE_STREAM_PROGRESS)
-            .release(),
+        std::make_unique<c10::Event>(at::DeviceType::PrivateUse1).release(),
         destructor);
   }
 
@@ -572,7 +389,7 @@ class EventPool {
  private:
   struct PerDevicePool {
     alignas(64) std::mutex mutex_;
-    std::vector<std::unique_ptr<c10_npu::NPUEvent>> event_pool_;
+    std::vector<std::unique_ptr<c10::Event>> event_pool_;
   };
   std::vector<PerDevicePool> pools_;
 };
@@ -823,7 +640,7 @@ class DeviceCachingAllocator {
 
   // outstanding acl events
   ska::flat_hash_map<
-      c10_npu::NPUStream,
+      c10::Stream,
       std::deque<std::pair<EventPool::Event, Block*>>>
       npu_events;
 
@@ -897,7 +714,7 @@ class DeviceCachingAllocator {
   // All public methods (except the above) acquire the allocator mutex.
   // Thus, do not call a public method from another public method.
 
-  Block* malloc(int device, size_t orig_size, aclrtStream stream) {
+  Block* malloc(int device, size_t orig_size, void* stream) {
     // done outside the lock because we don't know what locks the recorder needs
     // to have...
     auto context = maybeGatherContext(RecordContext::STATE);
@@ -908,7 +725,7 @@ class DeviceCachingAllocator {
       NPU_CHECK_ERROR(c10_npu::GetDevice(&device));
     }
 
-    // process outstanding npuEvents
+    // process outstanding npu Events
     process_events(context);
     auto size = round_size(orig_size);
     auto& pool = get_pool(size);
@@ -1198,12 +1015,12 @@ class DeviceCachingAllocator {
     return basePtr;
   }
 
-  void recordStream(Block* block, c10_npu::NPUStream stream) {
+  void recordStream(Block* block, c10::Stream stream) {
     std::lock_guard<std::recursive_mutex> lock(mutex);
     block->stream_uses.insert(stream);
   }
 
-  void eraseStream(Block* block, c10_npu::NPUStream stream) {
+  void eraseStream(Block* block, c10::Stream stream) {
     std::shared_ptr<c10::GatheredContext> context =
         maybeGatherContext(RecordContext::ALL);
     std::lock_guard<std::recursive_mutex> lock(mutex);
@@ -1408,7 +1225,7 @@ class DeviceCachingAllocator {
   // may be composed of free and unmapped segments
   Block* find_expandable_block(
       int device,
-      aclrtStream stream,
+      void* stream,
       BlockPool* pool,
       size_t size) {
     Block key(device, stream, 0);
@@ -1441,7 +1258,7 @@ class DeviceCachingAllocator {
     }
     auto segment_size = pool->is_small ? kSmallBuffer : kLargeBuffer;
     expandable_segments_.emplace_back(
-        new ExpandableSegment(device, stream, segment_size));
+        createExpandableSegment(device, stream, segment_size));
 
     ExpandableSegment* es = expandable_segments_.back();
     Block* candidate = new Block(device, stream, es->size(), pool, es->ptr());
@@ -1517,7 +1334,7 @@ class DeviceCachingAllocator {
 
   Block* try_allocate_expandable_block(
       int device,
-      aclrtStream stream,
+      void* stream,
       BlockPool* pool,
       size_t size,
       const std::shared_ptr<c10::GatheredContext>& ctx) {
@@ -2103,11 +1920,7 @@ class DeviceCachingAllocator {
       for (auto& e : st.second) {
         EventPool::Event event = std::move(e.first);
         Block* block = e.second;
-        if (check_error) {
-          NPU_CHECK_ERROR(aclrtSynchronizeEvent(*event));
-        } else {
-          NPU_CHECK_WARN(aclrtSynchronizeEvent(*event));
-        }
+        event->synchronize();
 #ifndef BUILD_LIBTORCH
         const c10_npu::impl::PyCallbackTrigger* trigger =
             c10_npu::impl::NPUTrace::getTrace();
@@ -2117,7 +1930,7 @@ class DeviceCachingAllocator {
         }
 #endif
         ASCEND_LOGI(
-          // todo aclr_t
+            // todo aclr_t
             "Event: aclr_tSynchronizeEvent is successfully executed, event=%p",
             event.get());
 
@@ -2157,7 +1970,7 @@ class DeviceCachingAllocator {
   }
 
   void process_events(const std::shared_ptr<c10::GatheredContext>& context) {
-    // Process outstanding npuEvents. Events that are completed are removed
+    // Process outstanding npu Events. Events that are completed are removed
     // from the queue, and the 'event_count' for the corresponding allocation
     // is decremented. Stops at the first event which has not been completed.
     // Since events on different devices or streams may occur out of order,
@@ -2203,7 +2016,7 @@ class DeviceCachingAllocator {
       TraceEntry::Action action,
       int64_t addr,
       size_t size,
-      aclrtStream stream,
+      void* stream,
       int device,
       std::shared_ptr<c10::GatheredContext> context) {
     if (!record_history) {
@@ -2290,7 +2103,7 @@ class NpuCachingAllocator : public NPUAllocator {
     return !device_allocator.empty();
   }
   /** allocates a block which is safe to use from the provided stream */
-  void malloc(void** devPtr, int device, size_t size, aclrtStream stream) {
+  void malloc(void** devPtr, int device, size_t size, void* stream) {
     Block* block = device_allocator[device]->malloc(device, size, stream);
 #ifndef BUILD_LIBTORCH
     torch_npu::profiler::reportMemoryDataToNpuProfiler(
@@ -2450,8 +2263,7 @@ class NpuCachingAllocator : public NPUAllocator {
     return device_allocator[block->device]->getBaseAllocation(block, outSize);
   }
 
-  void recordStream(const c10::DataPtr& ptr, c10_npu::NPUStream stream)
-      override {
+  void recordStream(const c10::DataPtr& ptr, c10::Stream stream) override {
     // Empty tensor's storage().data() might be a null ptr. As there is no
     // blocks associated with those tensors, it is fine to do nothing here.
     if (!ptr.get()) {
@@ -2476,7 +2288,7 @@ class NpuCachingAllocator : public NPUAllocator {
     device_allocator[block->device]->recordStream(block, stream);
   }
 
-  void eraseStream(const c10::DataPtr& ptr, c10_npu::NPUStream stream) {
+  void eraseStream(const c10::DataPtr& ptr, c10::Stream stream) override {
     if (!ptr.get()) {
       return;
     }
@@ -2497,8 +2309,7 @@ class NpuCachingAllocator : public NPUAllocator {
       AT_ERROR("invalid device pointer: ", ptr.get());
     }
 
-    if (block->stream !=
-        c10_npu::getCurrentNPUStream(block->device).stream(false)) {
+    if (block->stream != getCurrentStream(block->device)) {
       // If the Stream applying for tensor block different from
       // the stream of submiting event wait task in HCCL synchronize()
       // method, the recordSteam can not be erased.
@@ -2532,8 +2343,7 @@ class NpuCachingAllocator : public NPUAllocator {
       NPU_CHECK_ERROR(bclrtMalloc(&devPtr, alloc_size));
     } else {
       if (size != 0) {
-        this->malloc(
-            &devPtr, device, size, c10_npu::getCurrentNPUStreamNoWait(device)); // todo 去掉对npustream的依赖
+        this->malloc(&devPtr, device, size, getCurrentStream(device));
       }
     }
     return {
@@ -2586,11 +2396,11 @@ class NpuCachingAllocator : public NPUAllocator {
     int device = 0;
     NPU_CHECK_ERROR(c10_npu::GetDevice(&device));
     void* r = nullptr;
-    malloc(&r, device, nbytes, c10_npu::getCurrentNPUStreamNoWait(device));
+    malloc(&r, device, nbytes, getCurrentStream(device));
     return r;
   }
 
-  void* raw_alloc_with_stream(size_t nbytes, aclrtStream stream) override {
+  void* raw_alloc_with_stream(size_t nbytes, void* stream) override {
     if (nbytes == 0) {
       return nullptr;
     }
@@ -2746,6 +2556,8 @@ struct BackendStaticInitializer {
 
 std::function<int(void* devPtr)> bclrtFree;
 std::function<int(void**, size_t)> bclrtMalloc;
+std::function<void*(c10::DeviceIndex)> getCurrentStream;
+std::function<ExpandableSegment*(int, void*, size_t)> createExpandableSegment;
 std::atomic<NPUAllocator*> allocator;
 BackendStaticInitializer backend_static_initializer;
 

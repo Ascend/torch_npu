@@ -10,7 +10,7 @@
 
 namespace torch::npu::NPUPluggableAllocator {
 
-using streamType = c10_npu::NPUStream;
+using streamType = c10::Stream;
 
 std::shared_ptr<c10_npu::NPUCachingAllocator::NPUAllocator> getCurrentAllocator();
 std::shared_ptr<c10_npu::NPUCachingAllocator::NPUAllocator> createCustomAllocator(
