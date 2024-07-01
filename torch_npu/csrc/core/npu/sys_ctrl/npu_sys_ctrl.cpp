@@ -1,3 +1,4 @@
+#include <iostream>
 #ifndef BUILD_LIBTORCH
 #include <torch/csrc/python_headers.h>
 #include <torch/csrc/THP.h>
@@ -182,7 +183,23 @@ NpuSysCtrl::NpuSysCtrl() : repeat_init_acl_flag_(true), init_flag_(false), devic
         ASCEND_LOGD("dump init success");
     }
 
-    c10_npu::NPUCachingAllocator::init();
+    const auto num_devices = c10_npu::device_count_ensure_non_zero();
+    c10_npu::NPUCachingAllocator::init(num_devices);
+    std::function<int (void**,size_t)> bmalloc = [](void** devPtr, size_t size) -> int {
+      // todo
+      static int count = 0;
+      count++;
+      std::cout << "hahamalloc" << " " << count << std::endl;
+        return aclrtMalloc(devPtr, size, aclrtMemMallocPolicy::ACL_MEM_MALLOC_HUGE_FIRST);
+    };
+    std::function<int (void*)> bfree = [](void* devPtr) -> int {
+      // todo
+      static int count = 0;
+      count++;
+      std::cout << "hahafree" << " " << count << std::endl;
+        return aclrtFree(devPtr);
+    };
+    c10_npu::NPUCachingAllocator::initAllocFree(bfree, bmalloc);
     ASCEND_LOGD("Npu caching allocator initialize successfully");
 
     // There's no need to call c10_npu::GetDevice at the start of the process, because device 0 may not be needed

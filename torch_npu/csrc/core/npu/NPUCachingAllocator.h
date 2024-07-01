@@ -130,10 +130,10 @@ struct TraceEntry {
                     // it is still in use on another stream via
                     // record_stream This event is generated when a free
                     // actually completes.
-    SEGMENT_ALLOC, // a call to AclrtMalloc to get more memory from the OS
-    SEGMENT_FREE, // a call to aclrtFree to return memory to the OS (e.g. to
+    SEGMENT_ALLOC, // a call to Aclr_tMalloc to get more memory from the OS
+    SEGMENT_FREE, // a call to aclr_tFree to return memory to the OS (e.g. to
                   // defragment or empty_caches)
-    SEGMENT_MAP, // a call to AclrtMapMem (used with expandable_segments)
+    SEGMENT_MAP, // a call to Aclr_tMapMem (used with expandable_segments)
     SEGMENT_UNMAP, // unmap part of a segment (used with expandable
                    // segments)
     SNAPSHOT, // a call to snapshot, used to correlate memory snapshots to
@@ -227,6 +227,8 @@ class NPUAllocator : public c10::Allocator {
 // (atomic stores are different), so reading this value
 // is no different than loading a pointer.
 C10_NPU_API extern std::atomic<NPUAllocator*> allocator;
+C10_NPU_API extern std::function<int(void*)> bclrtFree;
+C10_NPU_API extern std::function<int(void**, size_t)> bclrtMalloc;
 
 inline NPUAllocator* get() {
   return allocator.load();
@@ -245,10 +247,15 @@ inline void raw_delete(void* ptr) {
   return get()->raw_delete(ptr);
 }
 
-inline void init() {
-  uint32_t device_count = 0;
-  NPU_CHECK_ERROR(aclrtGetDeviceCount(&device_count));
+inline void init(int device_count) {
   return get()->init(device_count);
+}
+
+inline void initAllocFree(
+    std::function<int(void*)> free,
+    std::function<int(void**, size_t)> bmalloc) {
+  bclrtFree = free;
+  bclrtMalloc = bmalloc;
 }
 
 inline void setMemoryFraction(double fraction, int device) {

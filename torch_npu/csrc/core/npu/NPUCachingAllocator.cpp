@@ -217,41 +217,39 @@ struct SegmentRange {
 /*
 Note [Expandable Segments]
 Rationale
-For large (>2MB) allocations, the allocator calls aclrtMalloc to get allocations
-that are the same size as whataclrtMalloc the user requests. In the future,
-parts of these allocations can be reused for other requests if they are free.
-This works well when the program makes many requests of exactly the same size or
-of sizes that even multiples of that size. Many deep learning models follow this
-behavior. However, one common exception is when the batch size changes slightly
-from one iteration to the next, e.g. in batched inference. When the program runs
-initially with batch size N, it will make allocations appropriate for that size.
-If in the future, it runs at size N - 1, the existing allocations will still be
-big enough. However, if it runs at size N + 1, then it will have to make new
-allocations that are slightly larger. Not all the tensors are the same size.
-Some might be (N + 1)*A and others (N + 1)*A*B where A and B are some non-batch
-dimensions in the model. Because the allocator reuses existing allocations when
-they are big enough, some number of (N + 1)*A allocations will actually fit in
-the already existing N*B*A segments, though not perfectly. As the model runs it
-will partially fill up all of these segments leaving unusable free slices of
-memory at the end of these segments. The allocator at some point will need to
-aclrtMalloc a new (N + 1)*A*B segment. If there is not enough memory, there is
-now no way to recover the slices of memory that are free at the end of existing
-segments. With models 50+ layers deep, this pattern might repeat 50+ times
-creating many slivers.
-Approach
-Expandable segments allows the allocator to create a segment initially and then
-expand its size later when more memory is needed. Instead of making one segment
-per allocation, it tries to make one segment (per stream) that grows as
-necessary. Now when the N + 1 case runs, the allocations will tile nicely into
-the one large segment until it fills up. Then more memory is requested and
-appended to the end of the segment. This process does not create as many slivers
-of unusable memory, so it is more likely to succeed at finding this memory.
-Implementation
+For large (>2MB) allocations, the allocator calls aclr_tMalloc to get
+allocations that are the same size as whataclr_tMalloc the user requests. In the
+future, parts of these allocations can be reused for other requests if they are
+free. This works well when the program makes many requests of exactly the same
+size or of sizes that even multiples of that size. Many deep learning models
+follow this behavior. However, one common exception is when the batch size
+changes slightly from one iteration to the next, e.g. in batched inference. When
+the program runs initially with batch size N, it will make allocations
+appropriate for that size. If in the future, it runs at size N - 1, the existing
+allocations will still be big enough. However, if it runs at size N + 1, then it
+will have to make new allocations that are slightly larger. Not all the tensors
+are the same size. Some might be (N + 1)*A and others (N + 1)*A*B where A and B
+are some non-batch dimensions in the model. Because the allocator reuses
+existing allocations when they are big enough, some number of (N + 1)*A
+allocations will actually fit in the already existing N*B*A segments, though not
+perfectly. As the model runs it will partially fill up all of these segments
+leaving unusable free slices of memory at the end of these segments. The
+allocator at some point will need to aclr_tMalloc a new (N + 1)*A*B segment. If
+there is not enough memory, there is now no way to recover the slices of memory
+that are free at the end of existing segments. With models 50+ layers deep, this
+pattern might repeat 50+ times creating many slivers. Approach Expandable
+segments allows the allocator to create a segment initially and then expand its
+size later when more memory is needed. Instead of making one segment per
+allocation, it tries to make one segment (per stream) that grows as necessary.
+Now when the N + 1 case runs, the allocations will tile nicely into the one
+large segment until it fills up. Then more memory is requested and appended to
+the end of the segment. This process does not create as many slivers of unusable
+memory, so it is more likely to succeed at finding this memory. Implementation
 The expandable_segments:True option is used to enable/disable this behavior. We
 use npu's low-level memory APIs, which are similar to mmap, to extend the
 memory segments. These APIs separate the allocation of physical memory
-(AclrtMallocPhysical) from the allocation of virtual address space
-(AclrtReserveMemAddress) and the associate between them AclrtMapMem. When we
+(Aclr_tMallocPhysical) from the allocation of virtual address space
+(Aclr_tReserveMemAddress) and the associate between them Aclr_tMapMem. When we
 allocate a new segment, we allocate enough address space to map basically the
 entire physical memory of the NPU (there is 256TiB of address space), but we
 only map enough physical memory to handle the current amount of memory needed by
@@ -260,7 +258,7 @@ This can work at the granularity of NPU pages which are 2MiB currently. If we
 end up out of memory, we can unmap all the memory in our segment corresponding
 to empty physical pages, and return it to NPU for use at another address in the
 segment or in a segment for a different stream. A current limitation of NPU's
-API is that physical memory (aclrtDrvMemHandle) cannot be split up after it is
+API is that physical memory (aclr_tDrvMemHandle) cannot be split up after it is
 mapped even if the handle holds multiple NPU pages. The cost to map/unmap memory
 is proportional to the number of physical memory chunks that were allocated
 (mapping 10 separately allocated 2MiB pages takes 10x time compared to mapping
@@ -268,7 +266,7 @@ one 20MiB physical allocation of 10 pages).  Changing memory mappings also
 appears to involve at least some synchronous actions with the NPU and so should
 be considered an expensive operation. To limit overhead, we use 2MiB pages for
 our small pool and 20MiB pages for our large pool. Initially allocation using
-expandable_blocks will be slower than aclrtMalloc, though still in the
+expandable_blocks will be slower than aclr_tMalloc, though still in the
 milliseconds range for mapping the entire memory. When mapping new memory to
 expand the segment, we look for the lowest address at which we can fit a new
 allocation by adding new pages. Normally this will be at the end of the block.
@@ -303,7 +301,7 @@ struct ExpandableSegment {
     NPU_CHECK_ERROR(c10_npu::acl::AclrtReserveMemAddress(
         &ptr_, segment_size_ * max_handles_, 0, NULL, 1));
     ASCEND_LOGD(
-        "NPUCachingAllocator malloc by AclrtReserveMemAddress: size=%zu",
+        "NPUCachingAllocator malloc by Aclr_tReserveMemAddress: size=%zu",
         segment_size_ * max_handles_);
   }
   // begin must be aligned to segment_size_.
@@ -342,7 +340,7 @@ struct ExpandableSegment {
         trimHandles();
         return rangeFromHandles(begin, begin);
       }
-      NPU_CHECK_ERROR(status, "aclrtMallocPhysical");
+      NPU_CHECK_ERROR(status, "aclr_tMallocPhysical");
       handles_.at(i) = handle;
     }
     for (auto i : c10::irange(begin, end)) {
@@ -382,12 +380,12 @@ struct ExpandableSegment {
     forEachAllocatedRange(
         [&](size_t begin, size_t end) { unmapHandles(begin, end); });
     NPU_CHECK_ERROR(c10_npu::acl::AclrtReleaseMemAddress(ptr_));
-    ASCEND_LOGD("NPUCachingAllocator free by AclrtReleaseMemAddress");
+    ASCEND_LOGD("NPUCachingAllocator free by Aclr_tReleaseMemAddress");
   }
 
  private:
   void unmapHandles(size_t begin, size_t end) {
-    // note: unlike aclrtFree, MemUnmap and MemRelease do
+    // note: unlike aclr_tFree, MemUnmap and MemRelease do
     // not appear to synchronize in all cases, so we have to wait for the
     // stream to finish before this memory is truly free.
 
@@ -1850,8 +1848,7 @@ class DeviceCachingAllocator {
       }
       return bool(p.block);
     } else {
-      p.err = c10_npu::acl::AclrtMallocAlign32(
-          &ptr, size, aclrtMemMallocPolicy::ACL_MEM_MALLOC_HUGE_FIRST);
+      p.err = bclrtMalloc(&ptr, size);
     }
 
     if (p.err != ACL_ERROR_NONE) {
@@ -1859,7 +1856,7 @@ class DeviceCachingAllocator {
       return false;
     }
     ASCEND_LOGD(
-        "NPUCachingAllocator malloc by AclrtMallocAlign32: size=%zu", size);
+        "NPUCachingAllocator malloc by Aclr_tMallocAlign32: size=%zu", size);
 
     total_allocated_memory += size;
     p.block = new Block(p.device(), p.stream(), size, p.pool, (char*)ptr);
@@ -1975,7 +1972,8 @@ class DeviceCachingAllocator {
       const std::shared_ptr<c10::GatheredContext>& context) {
     TORCH_INTERNAL_ASSERT(
         !block->expandable_segment_, PTA_ERROR(ErrCode::VALUE));
-    ASCEND_LOGD("NPUCachingAllocator free by aclrtFree: size=%zu", block->size);
+    ASCEND_LOGD(
+        "NPUCachingAllocator free by aclr_tFree: size=%zu", block->size);
 
     record_trace(
         TraceEntry::SEGMENT_FREE,
@@ -1985,7 +1983,7 @@ class DeviceCachingAllocator {
         block->device,
         context ? context : block->context_when_segment_allocated);
 
-    aclrtFree((void*)block->ptr);
+    bclrtFree((void*)block->ptr);
     total_allocated_memory -= block->size;
 
     auto* pool = block->pool;
@@ -2119,7 +2117,8 @@ class DeviceCachingAllocator {
         }
 #endif
         ASCEND_LOGI(
-            "Event: aclrtSynchronizeEvent is successfully executed, event=%p",
+          // todo aclr_t
+            "Event: aclr_tSynchronizeEvent is successfully executed, event=%p",
             event.get());
 
         block->event_count--;
@@ -2244,7 +2243,7 @@ bool force_uncached_allocator() {
 
 static void uncached_delete(void* ptr) {
   c10_npu::npuSynchronizeDevice(true);
-  NPU_CHECK_ERROR(aclrtFree(ptr));
+  NPU_CHECK_ERROR(bclrtFree(ptr));
 }
 
 void local_raw_delete(void* ptr);
@@ -2530,14 +2529,11 @@ class NpuCachingAllocator : public NPUAllocator {
     if (force_uncached_allocator()) {
       deleteFunc = &uncached_delete;
       size_t alloc_size = size + 32;
-      NPU_CHECK_ERROR(c10_npu::acl::AclrtMallocAlign32(
-          &devPtr,
-          alloc_size,
-          aclrtMemMallocPolicy::ACL_MEM_MALLOC_HUGE_FIRST));
+      NPU_CHECK_ERROR(bclrtMalloc(&devPtr, alloc_size));
     } else {
       if (size != 0) {
         this->malloc(
-            &devPtr, device, size, c10_npu::getCurrentNPUStreamNoWait(device));
+            &devPtr, device, size, c10_npu::getCurrentNPUStreamNoWait(device)); // todo 去掉对npustream的依赖
       }
     }
     return {
@@ -2748,6 +2744,8 @@ struct BackendStaticInitializer {
   }
 };
 
+std::function<int(void* devPtr)> bclrtFree;
+std::function<int(void**, size_t)> bclrtMalloc;
 std::atomic<NPUAllocator*> allocator;
 BackendStaticInitializer backend_static_initializer;
 
