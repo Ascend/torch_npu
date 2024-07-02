@@ -1,5 +1,6 @@
 #include <c10/core/DeviceType.h>
 #include <torch/csrc/autograd/utils/wrap_outputs.h>
+#include <torch/csrc/utils/python_arg_parser.h>
 
 #include "torch_npu/csrc/utils/LazyInit.h"
 #include "torch_npu/csrc/utils/TensorType.h"
@@ -10,46 +11,16 @@ namespace utils {
 using namespace at;
 using namespace torch::autograd;
 
-std::vector<std::pair<Backend, ScalarType>> all_declared_types_npu() {
-  std::vector<std::pair<Backend, ScalarType>> ret;
-  // can't easily iterate over enum classes, does not support BFloat16 now
-  std::vector<Backend> backends = {c10::Backend::PrivateUse1};
-  std::vector<ScalarType> scalar_types = {
-      ScalarType::Byte,
-      ScalarType::Char,
-      ScalarType::Double,
-      ScalarType::Float,
-      ScalarType::Int,
-      ScalarType::Long,
-      ScalarType::Short,
-      ScalarType::Half,
-      ScalarType::Bool,
-      ScalarType::BFloat16};
-
-  for (auto& backend : backends) {
-    for (auto& scalar_type : scalar_types) {
-      ret.emplace_back(std::make_pair(backend, scalar_type));
-    }
-  }
-
-  return ret;
-}
-
+static Backend backend = c10::Backend::PrivateUse1;
 struct PyTensorType {
   PyTypeObject py_type;
   THPDtype* dtype;
   THPLayout* layout;
-  bool is_npu;
   char name[64];
-  int backend;
   int scalar_type;
 
-  Backend get_backend() const {
-    return static_cast<Backend>(backend);
-  }
-
   DispatchKey get_dispatch_key() const {
-    return backendToDispatchKey(static_cast<Backend>(backend));
+    return backendToDispatchKey(backend);
   }
 
   ScalarType get_scalar_type() const {
@@ -69,18 +40,17 @@ static PyObject* Tensor_new(
     PyObject* kwargs) {
   HANDLE_TH_ERRORS
   auto& tensor_type = *((PyTensorType*)type);
-  if (tensor_type.is_npu) {
-    static auto warn_once = []() {
-      std::cout
-          << "Warning: The torch.npu.*DtypeTensor constructors are no longer recommended. "
-             "It's best to use methods such as torch.tensor(data, dtype=*, device='npu') "
-             "to create tensors."
-          << std::endl;
-      return true;
-    }();
-  }
+  static auto warn_once = []() {
+    auto name = c10::get_privateuse1_backend();
+    std::cout
+        << "Warning: The torch." << name
+        << ".*DtypeTensor constructors are no longer recommended. "
+           "It's best to use methods such as torch.tensor(data, dtype=*, device='"
+        << name << "') to create tensors." << std::endl;
+    return true;
+  }();
   TORCH_CHECK_TYPE(
-      !tensor_type.is_npu || c10_npu::device_count() != 0,
+      c10_npu::device_count() != 0,
       "type ",
       tensor_type.name,
       " not available. Torch not compiled with npu enabled.",
@@ -117,14 +87,6 @@ PyObject* Tensor_layout(PyTensorType* self, void* unused) {
   return torch::autograd::utils::wrap(self->layout);
 }
 
-PyObject* Tensor_is_npu(PyTensorType* self, void* unused) {
-  if (self->is_npu) {
-    Py_RETURN_TRUE;
-  } else {
-    Py_RETURN_FALSE;
-  }
-}
-
 PyObject* Tensor_is_sparse(PyTensorType* self, void* unused) {
   if (self->layout->layout == at::Layout::Strided) {
     Py_RETURN_FALSE;
@@ -138,13 +100,17 @@ static struct PyMethodDef metaclass_methods[] = {
     {nullptr}};
 
 using getter = PyObject* (*)(PyObject*, void*);
+static getter always_true = [](auto x, auto y) { Py_RETURN_TRUE; };
 
-static struct PyGetSetDef metaclass_properties[] = {
-    {"dtype", (getter)Tensor_dtype, nullptr, nullptr, nullptr},
-    {"layout", (getter)Tensor_layout, nullptr, nullptr, nullptr},
-    {"is_npu", (getter)Tensor_is_npu, nullptr, nullptr, nullptr},
-    {"is_sparse", (getter)Tensor_is_sparse, nullptr, nullptr, nullptr},
-    {nullptr}};
+static PyGetSetDef* get_metaclass_properties() {
+  static std::string is_pv1 = "is_" + c10::get_privateuse1_backend();
+  return new PyGetSetDef[5]{
+      {"dtype", (getter)Tensor_dtype, nullptr, nullptr, nullptr},
+      {"layout", (getter)Tensor_layout, nullptr, nullptr, nullptr},
+      {is_pv1.c_str(), always_true, nullptr, nullptr, nullptr},
+      {"is_sparse", (getter)Tensor_is_sparse, nullptr, nullptr, nullptr},
+      {nullptr}};
+}
 
 static PyTypeObject metaclass = {
     PyVarObject_HEAD_INIT(nullptr, 0) "torch.tensortype", /* tp_name */
@@ -154,7 +120,7 @@ static PyTypeObject metaclass = {
 static void py_initialize_metaclass(PyTypeObject& metaclass) {
   metaclass.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
   metaclass.tp_methods = metaclass_methods;
-  metaclass.tp_getset = metaclass_properties;
+  metaclass.tp_getset = get_metaclass_properties();
   metaclass.tp_base = &PyType_Type;
   if (PyType_Ready(&metaclass) < 0) {
     throw python_error();
@@ -172,8 +138,8 @@ static void py_initialize_tensor_type(
     PyObject* tp_dict) {
   // NOTE: we don't use the typical static declaration of PyTypeObject because
   // we need to initialize as many types as there are VariableType instances.
-  // We copy the basic object fields from a prototype definition and initialize
-  // the remaining fields below.
+  // We copy the basic object fields from a prototype definition and
+  // initialize the remaining fields below.
   memcpy(&type, &tensor_type_prototype, sizeof(PyTypeObject));
   // Subclassing from torch.<ScalarType>Tensor isn't supported.
   // (Py_TPFLAGS_BASETYPE omitted). Subclassing torch.Tensor still allowed.
@@ -188,39 +154,18 @@ static void py_initialize_tensor_type(
   }
 }
 
-static std::string get_module(Backend backend) {
-  switch (backend) {
-    case Backend::CPU:
-      return "torch";
-    case Backend::CUDA:
-      return "torch.cuda";
-    case Backend::SparseCPU:
-      return "torch.sparse";
-    case Backend::SparseCUDA:
-      return "torch.cuda.sparse";
-    case Backend::PrivateUse1:
-      return "torch." + c10::get_privateuse1_backend();
-    default:
-      AT_ERROR("invalid backend: ", c10::toString(backend));
-  }
-}
-
-static std::string get_name(Backend backend, ScalarType scalarType) {
+static std::string get_name(ScalarType scalarType) {
   std::ostringstream ss;
-  ss << get_module(backend) << "." << toString(scalarType) << "Tensor";
+  ss << "torch." << c10::get_privateuse1_backend() << "."
+     << toString(scalarType) << "Tensor";
   return ss.str();
 }
 
-static void set_type(
-    PyTensorType& type_obj,
-    Backend backend,
-    ScalarType scalarType) {
+static void set_type(PyTensorType& type_obj, ScalarType scalarType) {
   // This field is lazily initialized from backend and scalar_type
-  type_obj.backend = static_cast<int>(backend);
   type_obj.scalar_type = static_cast<int>(scalarType);
   type_obj.layout = torch::getTHPLayout(c10::layout_from_backend(backend));
   type_obj.dtype = torch::getTHPDtype(scalarType);
-  type_obj.is_npu = (backend == c10::Backend::PrivateUse1);
 }
 
 static void set_name(PyTensorType& type_obj, const std::string& name) {
@@ -263,28 +208,27 @@ static THPObjectPtr get_tensor_dict() {
 
 static std::vector<PyTensorType> tensor_types;
 
-static void initialize_npu_aten_types(std::vector<PyTensorType>& tensor_types) {
-  // only initialize npu types
-  auto declared_types = all_declared_types_npu();
-  tensor_types.resize(declared_types.size());
+static void initialize_npu_aten_types(
+    std::vector<PyTensorType>& tensor_types,
+    std::vector<ScalarType>& scalar_types) {
+  tensor_types.resize(scalar_types.size());
 
-  for (size_t i = 0, end = declared_types.size(); i != end; i++) {
+  for (size_t i = 0, end = scalar_types.size(); i != end; i++) {
     auto& tensor_type = tensor_types[i];
-    Backend backend = declared_types[i].first;
-    ScalarType scalar_type = declared_types[i].second;
-    set_type(tensor_type, backend, scalar_type);
-    set_name(tensor_type, get_name(backend, scalar_type));
+    ScalarType scalar_type = scalar_types[i];
+    set_type(tensor_type, scalar_type);
+    set_name(tensor_type, get_name(scalar_type));
   }
 }
 
-void _initialize_python_bindings() {
-  // Initialize the at::Type* pointers, name, and properties of the PyTensorType
-  // vector. After this call, the vector must not be resized.
-  initialize_npu_aten_types(tensor_types);
+void initialize_python_bindings(std::vector<ScalarType>& scalar_types) {
+  // Initialize the at::Type* pointers, name, and properties of the
+  // PyTensorType vector. After this call, the vector must not be resized.
+  initialize_npu_aten_types(tensor_types, scalar_types);
 
   // Initialize the Python metaclass for the torch.FloatTensor, etc. types.
-  // The metaclass handles __instancecheck__ checks and binds the dtype property
-  // on the type objects.
+  // The metaclass handles __instancecheck__ checks and binds the dtype
+  // property on the type objects.
   py_initialize_metaclass(metaclass);
 
   // Get the tp_dict of the Variable class. We copy function definitions
@@ -292,7 +236,7 @@ void _initialize_python_bindings() {
   // `torch.npu.FloatTensor.add`.
   auto tensor_dict = get_tensor_dict();
 
-  // Initialize each Python type object torch.npu.FloatTensor,
+  // Initialize each Python type object. e.g. torch.npu.FloatTensor,
   // torch.npu.DoubleTensor, etc.
   for (auto& tensor_type : tensor_types) {
     py_initialize_tensor_type(
@@ -300,8 +244,9 @@ void _initialize_python_bindings() {
   }
 
   // Add the type objects to their corresponding modules. e.g.
-  // torch.npu.FloatTensor is added to the `torch_npu` module as `FloatTensor`.
-  // Also add all the type objects to the set torch_npu._tensor_classes.
+  // torch.npu.FloatTensor is added to the `torch_npu` module as
+  // `FloatTensor`. Also add all the type objects to the set
+  // torch_npu._tensor_classes.
   py_bind_tensor_types(tensor_types);
 }
 
@@ -339,18 +284,31 @@ static void py_bind_tensor_types(
 
 // Callback for python part. Used for additional initialization of python
 // classes
-static PyObject* THPModule_initExtension(PyObject* _unused, PyObject* noargs) {
+static PyObject* generate_tensor_types(PyObject* _unused, PyObject* args) {
   HANDLE_TH_ERRORS
-  _initialize_python_bindings();
+  PyObject* p_list;
+  if (!PyArg_ParseTuple(args, "O", &p_list)) {
+    return nullptr;
+  }
+
+  std::vector<ScalarType> scalar_types;
+  Py_ssize_t list_len = PyList_Size(p_list);
+  for (Py_ssize_t i = 0; i < list_len; ++i) {
+    PyObject* item = PyList_GetItem(p_list, i);
+    ScalarType scalar_type = torch::toScalarType(item);
+    scalar_types.push_back(scalar_type);
+  }
+
+  initialize_python_bindings(scalar_types);
   Py_RETURN_NONE;
   END_HANDLE_TH_ERRORS
 }
 
 // autograd methods on torch._C
 static PyMethodDef TorchNpuExtensionMethods[] = {
-    {"_initExtension",
-     (PyCFunction)THPModule_initExtension,
-     METH_NOARGS,
+    {"generate_tensor_types",
+     (PyCFunction)generate_tensor_types,
+     METH_VARARGS,
      nullptr},
     {nullptr, nullptr, 0, nullptr}};
 

@@ -6,14 +6,14 @@ import torch
 import torch.utils
 
 import torch_npu
+import torch_npu._C
 import torch_npu.npu
 import torch_npu.optim
-import torch_npu._C
+from torch_npu.utils.error_code import _except_handler, ErrCode, pta_error
 
 from torch_npu.utils.exposed_api import public_npu_functions
-from torch_npu.utils.error_code import ErrCode, pta_error, _except_handler
-from .meta import _meta_registrations
 from . import _op_plugin_docs
+from .meta import _meta_registrations
 
 del _op_plugin_docs
 
@@ -58,7 +58,19 @@ torch.utils.generate_methods_for_privateuse1_backend(
 # Apply monkey-patches.
 _except_handler.patch_excepthook()
 # this must be placed at the end
-torch_npu._C._initExtension()
+supported_dtypes = [
+    torch.uint8,
+    torch.int8,
+    torch.float64,
+    torch.float32,
+    torch.int32,
+    torch.int64,
+    torch.int16,
+    torch.float16,
+    torch.bool,
+    torch.bfloat16,
+]
+torch_npu._C.generate_tensor_types(supported_dtypes)
 
 
 # NPU exit, need to synchronize devices

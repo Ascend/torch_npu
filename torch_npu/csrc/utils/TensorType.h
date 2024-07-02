@@ -8,7 +8,7 @@ namespace utils {
 
 // Initializes the Python tensor type objects: torch.npu.FloatTensor,
 // torch.npu.DoubleTensor, etc. and binds them in their containing modules.
-void _initialize_python_bindings();
+void initialize_python_bindings(std::vector<at::ScalarType>& scalar_types);
 
 TORCH_NPU_API PyMethodDef* npu_extension_functions();
 
