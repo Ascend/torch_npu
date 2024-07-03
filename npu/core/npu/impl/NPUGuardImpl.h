@@ -179,6 +179,13 @@ struct NPUGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     NPU_CHECK_ERROR(acl::AclQueryEventRecordedStatus(npu_event, &status));
     return (status == acl::ACL_EVENT_RECORDED_STATUS_COMPLETE);
   }
+
+  void synchronizeEvent(void* event) const override {
+    if (!event)
+      return;
+    aclrtEvent npu_event = static_cast<aclrtEvent>(event);
+    NPU_CHECK_ERROR(aclrtSynchronizeEvent(npu_event));
+  }
 };
 
 } // namespace impl

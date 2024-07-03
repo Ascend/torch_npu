@@ -176,7 +176,8 @@ void NPUPluggableAllocator::recordStream(
     const c10::DataPtr& ptr,
     streamType stream) {
   if (record_stream_fn_) {
-    record_stream_fn_(ptr.get(), stream);
+    c10_npu::NPUStream npu_stream(stream);
+    record_stream_fn_(ptr.get(), npu_stream);
   }
 }
 
@@ -184,7 +185,8 @@ void NPUPluggableAllocator::eraseStream(
     const c10::DataPtr& ptr,
     streamType stream) {
   if (erase_stream_fn_) {
-    erase_stream_fn_(ptr.get(), stream);
+    c10_npu::NPUStream npu_stream(stream);
+    erase_stream_fn_(ptr.get(), npu_stream);
   }
 }
 

@@ -14,13 +14,12 @@
 #include <c10/util/irange.h>
 
 #include "NPUBlockHandle.h"
+#include "npu/acl/include/acl/acl_base.h"
+#include "npu/acl/include/acl/acl_rt.h"
 #include "npu/core/npu/NPUCachingAllocator.h"
-#include "npu/core/npu/NPUEvent.h"
 #include "npu/core/npu/NPUGuard.h"
 #include "npu/core/npu/interface/AsyncTaskQueueInterface.h"
 #include "npu/core/npu/sys_ctrl/npu_sys_ctrl.h"
-#include "npu/acl/include/acl/acl_base.h"
-#include "npu/acl/include/acl/acl_rt.h"
 
 namespace c10_npu {
 namespace NPUCachingAllocator {
@@ -57,7 +56,7 @@ C10_DEFINE_REGISTRY(FreeNPUMemoryCallbacksRegistry, FreeMemoryCallback);
 // work.
 //
 namespace {
-using stream_set = ska::flat_hash_set<c10_npu::NPUStream>;
+using stream_set = ska::flat_hash_set<c10::Stream>;
 
 constexpr size_t kMinBlockSize =
     512; // all sizes are rounded to at least 512 bytes
@@ -127,11 +126,9 @@ struct BlockPool {
         is_small(small) {}
 };
 
-struct ExpandableSegment;
-
 struct Block {
   int device; // npu
-  aclrtStream stream; // allocation stream
+  void* stream; // allocation stream
   stream_set stream_uses; // streams on which the block was used
   size_t size; // block size in bytes
   size_t requested_size; // memory originally requested
@@ -148,7 +145,7 @@ struct Block {
   int event_count; // number of outstanding NPU events
   int gc_count{0}; // counter for prioritizing older / less useful blocks for
                    // garbage collection
-  ExpandableSegment* expandable_segment_{nullptr};
+  ExpandableSegment* expandable_segment_ = nullptr;
 
   std::shared_ptr<c10::GatheredContext> context_when_allocated;
   // only set for the first block in the segment (when prev == null)
@@ -157,7 +154,7 @@ struct Block {
   // memory out from our cache.
   std::shared_ptr<c10::GatheredContext> context_when_segment_allocated;
 
-  Block(int device, aclrtStream stream, size_t size, BlockPool* pool, void* ptr)
+  Block(int device, void* stream, size_t size, BlockPool* pool, void* ptr)
       : device(device),
         stream(stream),
         stream_uses(),
@@ -172,7 +169,7 @@ struct Block {
         gc_count(0) {}
 
   // constructor for search key
-  Block(int device, aclrtStream stream, size_t size)
+  Block(int device, void* stream, size_t size)
       : device(device),
         stream(stream),
         stream_uses(),
@@ -202,248 +199,6 @@ struct Block {
     }
     next = after;
   }
-};
-
-struct SegmentRange {
-  char* ptr;
-  size_t size;
-  SegmentRange(void* p, size_t s) : ptr(static_cast<char*>(p)), size(s) {}
-};
-
-/*
-Note [Expandable Segments]
-Rationale
-For large (>2MB) allocations, the allocator calls aclrtMalloc to get allocations
-that are the same size as whataclrtMalloc the user requests. In the future,
-parts of these allocations can be reused for other requests if they are free.
-This works well when the program makes many requests of exactly the same size or
-of sizes that even multiples of that size. Many deep learning models follow this
-behavior. However, one common exception is when the batch size changes slightly
-from one iteration to the next, e.g. in batched inference. When the program runs
-initially with batch size N, it will make allocations appropriate for that size.
-If in the future, it runs at size N - 1, the existing allocations will still be
-big enough. However, if it runs at size N + 1, then it will have to make new
-allocations that are slightly larger. Not all the tensors are the same size.
-Some might be (N + 1)*A and others (N + 1)*A*B where A and B are some non-batch
-dimensions in the model. Because the allocator reuses existing allocations when
-they are big enough, some number of (N + 1)*A allocations will actually fit in
-the already existing N*B*A segments, though not perfectly. As the model runs it
-will partially fill up all of these segments leaving unusable free slices of
-memory at the end of these segments. The allocator at some point will need to
-aclrtMalloc a new (N + 1)*A*B segment. If there is not enough memory, there is
-now no way to recover the slices of memory that are free at the end of existing
-segments. With models 50+ layers deep, this pattern might repeat 50+ times
-creating many slivers.
-Approach
-Expandable segments allows the allocator to create a segment initially and then
-expand its size later when more memory is needed. Instead of making one segment
-per allocation, it tries to make one segment (per stream) that grows as
-necessary. Now when the N + 1 case runs, the allocations will tile nicely into
-the one large segment until it fills up. Then more memory is requested and
-appended to the end of the segment. This process does not create as many slivers
-of unusable memory, so it is more likely to succeed at finding this memory.
-Implementation
-The expandable_segments:True option is used to enable/disable this behavior. We
-use npu's low-level memory APIs, which are similar to mmap, to extend the
-memory segments. These APIs separate the allocation of physical memory
-(AclrtMallocPhysical) from the allocation of virtual address space
-(AclrtReserveMemAddress) and the associate between them AclrtMapMem. When we
-allocate a new segment, we allocate enough address space to map basically the
-entire physical memory of the NPU (there is 256TiB of address space), but we
-only map enough physical memory to handle the current amount of memory needed by
-the program. As more is requested, we add more physical memory to the segment.
-This can work at the granularity of NPU pages which are 2MiB currently. If we
-end up out of memory, we can unmap all the memory in our segment corresponding
-to empty physical pages, and return it to NPU for use at another address in the
-segment or in a segment for a different stream. A current limitation of NPU's
-API is that physical memory (aclrtDrvMemHandle) cannot be split up after it is
-mapped even if the handle holds multiple NPU pages. The cost to map/unmap memory
-is proportional to the number of physical memory chunks that were allocated
-(mapping 10 separately allocated 2MiB pages takes 10x time compared to mapping
-one 20MiB physical allocation of 10 pages).  Changing memory mappings also
-appears to involve at least some synchronous actions with the NPU and so should
-be considered an expensive operation. To limit overhead, we use 2MiB pages for
-our small pool and 20MiB pages for our large pool. Initially allocation using
-expandable_blocks will be slower than aclrtMalloc, though still in the
-milliseconds range for mapping the entire memory. When mapping new memory to
-expand the segment, we look for the lowest address at which we can fit a new
-allocation by adding new pages. Normally this will be at the end of the block.
-But if have previously unmapped blocks earlier in the segment during an OOM, it
-will first try to fill in those gaps to keep the segment as a single block. By
-allocating at the lowest address we encourage the split up parts of the block to
-merge into a single block again, reducing fragmentation potential. Allocation of
-blocks in the segment uses the same best-fit heuristics of the rest of the
-allocator. Expandable blocks can be enabled/disabled throughout the run of a
-program. When disabled, the allocator will not put new allocations in an
-expandable block. Limitations
-* Slightly slower initial memory allocation speed.
-* IPC of npu tensors (e.g. for multiprocess dataloaders) is not supported.
-However, it is possible to temporarily disable (expandable_segments:False) the
-bevhavior for allocator tensors that need to be used cross-process.
-*/
-
-struct ExpandableSegment {
-  ExpandableSegment(int device, aclrtStream stream, size_t size)
-      : device_(device),
-        stream_(stream),
-        max_handles_(0),
-        // 2MB for small pool, 20MB for large pool
-        segment_size_(size) {
-    size_t device_free;
-    size_t device_total;
-    NPU_CHECK_ERROR(aclrtGetMemInfo(ACL_HBM_MEM, &device_free, &device_total));
-    // we allocate enough address space for 1 1/8 the total memory on the NPU.
-    // This allows for some cases where we have to unmap pages earlier in the
-    // segment to put them at the end.
-    max_handles_ = numSegments(device_total + device_total / 8);
-    NPU_CHECK_ERROR(c10_npu::acl::AclrtReserveMemAddress(
-        &ptr_, segment_size_ * max_handles_, 0, NULL, 1));
-    ASCEND_LOGD(
-        "NPUCachingAllocator malloc by AclrtReserveMemAddress: size=%zu",
-        segment_size_ * max_handles_);
-  }
-  // begin must be aligned to segment_size_.
-  // returns the actual range mapped, which may be
-  // greater than requested if size is not aligned to segment_size_.
-  // return size of 0 indicates OOM
-  SegmentRange map(SegmentRange range) {
-    auto begin = segmentLeft(range.ptr);
-    auto end = segmentRight(range.ptr + range.size);
-    TORCH_INTERNAL_ASSERT(
-        ptr() + begin * segment_size_ == range.ptr, PTA_ERROR(ErrCode::PTR));
-    if (begin == end) {
-      return rangeFromHandles(begin, end);
-    }
-    while (end > handles_.size()) {
-      handles_.emplace_back(c10::nullopt);
-    }
-    for (auto i : c10::irange(begin, end)) {
-      TORCH_INTERNAL_ASSERT(!handles_.at(i), PTA_ERROR(ErrCode::VALUE));
-      aclrtDrvMemHandle handle = nullptr;
-      aclrtPhysicalMemProp prop = {};
-      prop.handleType = ACL_MEM_HANDLE_TYPE_NONE;
-      prop.allocationType = ACL_MEM_ALLOCATION_TYPE_PINNED;
-      prop.memAttr = ACL_HBM_MEM_HUGE;
-      prop.location.type = ACL_MEM_LOCATION_TYPE_DEVICE;
-      prop.location.id = device_;
-      prop.reserve = 0;
-      auto status =
-          c10_npu::acl::AclrtMallocPhysical(&handle, segment_size_, &prop, 0);
-      if (status == ACL_ERROR_RT_MEMORY_ALLOCATION) {
-        for (auto j : c10::irange(begin, i)) {
-          auto h = handles_.at(j).value();
-          handles_.at(j) = c10::nullopt;
-          NPU_CHECK_ERROR(c10_npu::acl::AclrtFreePhysical(h));
-        }
-        trimHandles();
-        return rangeFromHandles(begin, begin);
-      }
-      NPU_CHECK_ERROR(status, "aclrtMallocPhysical");
-      handles_.at(i) = handle;
-    }
-    for (auto i : c10::irange(begin, end)) {
-      NPU_CHECK_ERROR(c10_npu::acl::AclrtMapMem(
-          ptr_ + i * segment_size_,
-          segment_size_,
-          0,
-          handles_.at(i).value(),
-          0));
-    }
-    ASCEND_LOGD("NPUCachingAllocator map: segment_size=%zu", segment_size_);
-    return rangeFromHandles(begin, end);
-  }
-
-  // unmaps all the completely empty segment_size_ segments between
-  // [begin, begin + size), returns the offset where the range begin,
-  // and the actual size unmapped (multiple of segment_size_)
-  SegmentRange unmap(SegmentRange range) {
-    auto begin = segmentRight(range.ptr);
-    auto end = segmentLeft(range.ptr + range.size);
-    if (begin >= end) {
-      return SegmentRange{range.ptr, 0};
-    }
-    unmapHandles(begin, end);
-    return rangeFromHandles(begin, end);
-  }
-
-  char* ptr() const {
-    return (char*)ptr_;
-  }
-
-  size_t size() const {
-    return max_handles_ * segment_size_;
-  }
-
-  ~ExpandableSegment() {
-    forEachAllocatedRange(
-        [&](size_t begin, size_t end) { unmapHandles(begin, end); });
-    NPU_CHECK_ERROR(c10_npu::acl::AclrtReleaseMemAddress(ptr_));
-    ASCEND_LOGD("NPUCachingAllocator free by AclrtReleaseMemAddress");
-  }
-
- private:
-  void unmapHandles(size_t begin, size_t end) {
-    // note: unlike aclrtFree, MemUnmap and MemRelease do
-    // not appear to synchronize in all cases, so we have to wait for the
-    // stream to finish before this memory is truly free.
-
-    // cannot call c10::npu::stream_synchronize because
-    // it might grab the GIL which can lead to a deadlock
-    // Locking order must be GIL -> Allocator Lock
-    NPU_CHECK_ERROR(aclrtSynchronizeStream(stream_));
-    for (auto i : c10::irange(begin, end)) {
-      aclrtDrvMemHandle h = handles_.at(i).value();
-      handles_.at(i) = c10::nullopt;
-      NPU_CHECK_ERROR(c10_npu::acl::AclrtUnmapMem(ptr_ + segment_size_ * i));
-      NPU_CHECK_ERROR(c10_npu::acl::AclrtFreePhysical(h));
-    }
-    ASCEND_LOGD("NPUCachingAllocator unmap: segment_size=%zu", segment_size_);
-    trimHandles();
-  }
-
-  void trimHandles() {
-    while (!handles_.empty() && !handles_.back()) {
-      handles_.pop_back();
-    }
-  }
-
-  void forEachAllocatedRange(std::function<void(size_t, size_t)> fn) {
-    auto start = 0;
-    for (auto i : c10::irange(handles_.size())) {
-      if (handles_.at(i) && (i == 0 || !handles_.at(i - 1))) {
-        start = i;
-      }
-      if (handles_.at(i) && (i + 1 == handles_.size() || !handles_.at(i + 1))) {
-        fn(start, i + 1);
-      }
-    }
-  }
-
-  size_t numSegments(size_t size) {
-    return (size + segment_size_ - 1) / segment_size_;
-  }
-
-  size_t segmentLeft(char* p) {
-    auto size = p - ptr();
-    return size / segment_size_;
-  }
-
-  size_t segmentRight(char* p) {
-    auto size = p - ptr();
-    return numSegments(size);
-  }
-
-  SegmentRange rangeFromHandles(size_t begin, size_t end) {
-    return SegmentRange(
-        ptr() + segment_size_ * begin, segment_size_ * (end - begin));
-  }
-
-  int device_;
-  aclrtStream stream_;
-  void* ptr_{};
-  size_t max_handles_;
-  size_t segment_size_;
-  std::vector<c10::optional<aclrtDrvMemHandle>> handles_;
 };
 
 static bool BlockComparatorSize(const Block* a, const Block* b) {
@@ -490,7 +245,7 @@ struct AllocParams {
   AllocParams(
       int device,
       size_t size,
-      aclrtStream stream,
+      void* stream,
       BlockPool* pool,
       size_t alloc_size,
       DeviceStats& stats)
@@ -503,7 +258,7 @@ struct AllocParams {
   int device() const {
     return search_key.device;
   }
-  aclrtStream stream() const {
+  void* stream() const {
     return search_key.stream;
   }
   size_t size() const {
@@ -520,8 +275,7 @@ struct AllocParams {
 
 class EventPool {
  public:
-  using Event = std::
-      unique_ptr<c10_npu::NPUEvent, std::function<void(c10_npu::NPUEvent*)>>;
+  using Event = std::unique_ptr<c10::Event, std::function<void(c10::Event*)>>;
   // Explicit device count
   EventPool() : pools_(c10_npu::device_count()) {}
 
@@ -530,9 +284,9 @@ class EventPool {
     TORCH_INTERNAL_ASSERT(
         device < static_cast<int>(pools_.size()), PTA_ERROR(ErrCode::VALUE));
     auto& pool = pools_[device];
-    auto destructor = [&pool](c10_npu::NPUEvent* event) {
+    auto destructor = [&pool](c10::Event* event) {
       std::lock_guard<std::mutex> g(pool.mutex_);
-      pool.event_pool_.push_back(std::unique_ptr<c10_npu::NPUEvent>(event));
+      pool.event_pool_.push_back(std::unique_ptr<c10::Event>(event));
     };
 
     // Try to acquire an event from the per-device pool.
@@ -547,8 +301,7 @@ class EventPool {
     // otherwise, allocate a new event that will be returned to the pool on
     // destruction.
     return Event(
-        std::make_unique<c10_npu::NPUEvent>(ACL_EVENT_CAPTURE_STREAM_PROGRESS)
-            .release(),
+        std::make_unique<c10::Event>(at::DeviceType::PrivateUse1).release(),
         destructor);
   }
 
@@ -562,7 +315,7 @@ class EventPool {
  private:
   struct PerDevicePool {
     alignas(64) std::mutex mutex_;
-    std::vector<std::unique_ptr<c10_npu::NPUEvent>> event_pool_;
+    std::vector<std::unique_ptr<c10::Event>> event_pool_;
   };
   std::vector<PerDevicePool> pools_;
 };
@@ -606,13 +359,13 @@ class CachingAllocatorConfig {
         m_garbage_collection_threshold(0),
         m_expandable_segments(true) {
     void* ptr = nullptr;
-    auto status = c10_npu::acl::AclrtReserveMemAddress(&ptr, 512, 0, NULL, 1);
+    auto status = deviceAPI.memAddressReserve(&ptr, 512, 0, NULL, 1);
     if (status == ACL_ERROR_NONE) {
-      NPU_CHECK_ERROR(c10_npu::acl::AclrtReleaseMemAddress(ptr));
+      NPU_CHECK_ERROR(deviceAPI.memAddressFree(ptr, 512));
     } else {
       TORCH_NPU_WARN_ONCE(
-          "expandable_segments feature is not supportted \
-                    and the possible cause is that driver and firmware packages do not match.");
+          "expandable_segments feature is not supportted and "
+          "the possible cause is that driver and firmware packages do not match.");
       m_expandable_segments = false;
     }
   }
@@ -723,9 +476,9 @@ size_t CachingAllocatorConfig::parseExpandableSegments(
     m_expandable_segments = (config[i] == "True");
     if (m_expandable_segments) {
       void* ptr = nullptr;
-      auto status = c10_npu::acl::AclrtReserveMemAddress(&ptr, 512, 0, NULL, 1);
+      auto status = deviceAPI.memAddressReserve(&ptr, 512, 0, NULL, 1);
       if (status == ACL_ERROR_NONE) {
-        NPU_CHECK_ERROR(c10_npu::acl::AclrtReleaseMemAddress(ptr));
+        NPU_CHECK_ERROR(deviceAPI.memAddressFree(ptr, 512));
       } else {
         NPU_CHECK_SUPPORTED_OR_ERROR(status);
         TORCH_NPU_WARN_ONCE(
@@ -813,7 +566,7 @@ class DeviceCachingAllocator {
 
   // outstanding acl events
   ska::flat_hash_map<
-      c10_npu::NPUStream,
+      c10::Stream,
       std::deque<std::pair<EventPool::Event, Block*>>>
       npu_events;
 
@@ -887,7 +640,7 @@ class DeviceCachingAllocator {
   // All public methods (except the above) acquire the allocator mutex.
   // Thus, do not call a public method from another public method.
 
-  Block* malloc(int device, size_t orig_size, aclrtStream stream) {
+  Block* malloc(int device, size_t orig_size, void* stream) {
     // done outside the lock because we don't know what locks the recorder needs
     // to have...
     auto context = maybeGatherContext(RecordContext::STATE);
@@ -898,7 +651,7 @@ class DeviceCachingAllocator {
       NPU_CHECK_ERROR(c10_npu::GetDevice(&device));
     }
 
-    // process outstanding npuEvents
+    // process outstanding npu Events
     process_events(context);
     auto size = round_size(orig_size);
     auto& pool = get_pool(size);
@@ -943,8 +696,7 @@ class DeviceCachingAllocator {
       if (params.err == ACL_ERROR_RT_MEMORY_ALLOCATION) {
         size_t device_free;
         size_t device_total;
-        NPU_CHECK_ERROR(
-            aclrtGetMemInfo(ACL_HBM_MEM, &device_free, &device_total));
+        NPU_CHECK_ERROR(deviceAPI.memGetInfo(&device_free, &device_total));
 
         std::string allowed_info;
         if (set_fraction) {
@@ -1188,12 +940,12 @@ class DeviceCachingAllocator {
     return basePtr;
   }
 
-  void recordStream(Block* block, c10_npu::NPUStream stream) {
+  void recordStream(Block* block, c10::Stream stream) {
     std::lock_guard<std::recursive_mutex> lock(mutex);
     block->stream_uses.insert(stream);
   }
 
-  void eraseStream(Block* block, c10_npu::NPUStream stream) {
+  void eraseStream(Block* block, c10::Stream stream) {
     std::shared_ptr<c10::GatheredContext> context =
         maybeGatherContext(RecordContext::ALL);
     std::lock_guard<std::recursive_mutex> lock(mutex);
@@ -1219,7 +971,7 @@ class DeviceCachingAllocator {
   void setMemoryFraction(double fraction) {
     size_t device_free;
     size_t device_total;
-    NPU_CHECK_ERROR(aclrtGetMemInfo(ACL_HBM_MEM, &device_free, &device_total));
+    NPU_CHECK_ERROR(deviceAPI.memGetInfo(&device_free, &device_total));
     allowed_memory_maximum = static_cast<size_t>(fraction * device_total);
     set_fraction = true;
   }
@@ -1398,7 +1150,7 @@ class DeviceCachingAllocator {
   // may be composed of free and unmapped segments
   Block* find_expandable_block(
       int device,
-      aclrtStream stream,
+      void* stream,
       BlockPool* pool,
       size_t size) {
     Block key(device, stream, 0);
@@ -1431,7 +1183,7 @@ class DeviceCachingAllocator {
     }
     auto segment_size = pool->is_small ? kSmallBuffer : kLargeBuffer;
     expandable_segments_.emplace_back(
-        new ExpandableSegment(device, stream, segment_size));
+        deviceAPI.createExpandableSegment(device, stream, segment_size));
 
     ExpandableSegment* es = expandable_segments_.back();
     Block* candidate = new Block(device, stream, es->size(), pool, es->ptr());
@@ -1507,7 +1259,7 @@ class DeviceCachingAllocator {
 
   Block* try_allocate_expandable_block(
       int device,
-      aclrtStream stream,
+      void* stream,
       BlockPool* pool,
       size_t size,
       const std::shared_ptr<c10::GatheredContext>& ctx) {
@@ -1838,16 +1590,14 @@ class DeviceCachingAllocator {
       }
       return bool(p.block);
     } else {
-      p.err = c10_npu::acl::AclrtMallocAlign32(
-          &ptr, size, aclrtMemMallocPolicy::ACL_MEM_MALLOC_HUGE_FIRST);
+      p.err = deviceAPI.memAlloc(&ptr, size);
     }
 
     if (p.err != ACL_ERROR_NONE) {
       p.err = ACL_ERROR_RT_MEMORY_ALLOCATION;
       return false;
     }
-    ASCEND_LOGD(
-        "NPUCachingAllocator malloc by AclrtMallocAlign32: size=%zu", size);
+    ASCEND_LOGD("NPUCachingAllocator malloc by memAlloc: size=%zu", size);
 
     total_allocated_memory += size;
     p.block = new Block(p.device(), p.stream(), size, p.pool, (char*)ptr);
@@ -1963,7 +1713,7 @@ class DeviceCachingAllocator {
       const std::shared_ptr<c10::GatheredContext>& context) {
     TORCH_INTERNAL_ASSERT(
         !block->expandable_segment_, PTA_ERROR(ErrCode::VALUE));
-    ASCEND_LOGD("NPUCachingAllocator free by aclrtFree: size=%zu", block->size);
+    ASCEND_LOGD("NPUCachingAllocator free by memFree: size=%zu", block->size);
 
     record_trace(
         TraceEntry::SEGMENT_FREE,
@@ -1973,7 +1723,7 @@ class DeviceCachingAllocator {
         block->device,
         context ? context : block->context_when_segment_allocated);
 
-    aclrtFree((void*)block->ptr);
+    deviceAPI.memFree((void*)block->ptr);
     total_allocated_memory -= block->size;
 
     auto* pool = block->pool;
@@ -2093,13 +1843,9 @@ class DeviceCachingAllocator {
       for (auto& e : st.second) {
         EventPool::Event event = std::move(e.first);
         Block* block = e.second;
-        if (check_error) {
-          NPU_CHECK_ERROR(aclrtSynchronizeEvent(*event));
-        } else {
-          NPU_CHECK_WARN(aclrtSynchronizeEvent(*event));
-        }
+        event->synchronize();
         ASCEND_LOGI(
-            "Event: aclrtSynchronizeEvent is successfully executed, event=%p",
+            "Event: synchronize is successfully executed, event=%p",
             event.get());
 
         block->event_count--;
@@ -2138,7 +1884,7 @@ class DeviceCachingAllocator {
   }
 
   void process_events(const std::shared_ptr<c10::GatheredContext>& context) {
-    // Process outstanding npuEvents. Events that are completed are removed
+    // Process outstanding npu Events. Events that are completed are removed
     // from the queue, and the 'event_count' for the corresponding allocation
     // is decremented. Stops at the first event which has not been completed.
     // Since events on different devices or streams may occur out of order,
@@ -2184,7 +1930,7 @@ class DeviceCachingAllocator {
       TraceEntry::Action action,
       int64_t addr,
       size_t size,
-      aclrtStream stream,
+      void* stream,
       int device,
       std::shared_ptr<c10::GatheredContext> context) {
     if (!record_history) {
@@ -2224,7 +1970,7 @@ bool force_uncached_allocator() {
 
 static void uncached_delete(void* ptr) {
   c10_npu::npuSynchronizeDevice(true);
-  NPU_CHECK_ERROR(aclrtFree(ptr));
+  NPU_CHECK_ERROR(deviceAPI.memFree(ptr));
 }
 
 void local_raw_delete(void* ptr);
@@ -2271,7 +2017,7 @@ class NpuCachingAllocator : public NPUAllocator {
     return !device_allocator.empty();
   }
   /** allocates a block which is safe to use from the provided stream */
-  void malloc(void** devPtr, int device, size_t size, aclrtStream stream) {
+  void malloc(void** devPtr, int device, size_t size, void* stream) {
     Block* block = device_allocator[device]->malloc(device, size, stream);
     add_allocated_block(block);
     *devPtr = static_cast<void*>(block->ptr);
@@ -2344,8 +2090,7 @@ class NpuCachingAllocator : public NPUAllocator {
     return device_allocator[block->device]->getBaseAllocation(block, outSize);
   }
 
-  void recordStream(const c10::DataPtr& ptr, c10_npu::NPUStream stream)
-      override {
+  void recordStream(const c10::DataPtr& ptr, c10::Stream stream) override {
     // Empty tensor's storage().data() might be a null ptr. As there is no
     // blocks associated with those tensors, it is fine to do nothing here.
     if (!ptr.get()) {
@@ -2370,7 +2115,7 @@ class NpuCachingAllocator : public NPUAllocator {
     device_allocator[block->device]->recordStream(block, stream);
   }
 
-  void eraseStream(const c10::DataPtr& ptr, c10_npu::NPUStream stream) {
+  void eraseStream(const c10::DataPtr& ptr, c10::Stream stream) override {
     if (!ptr.get()) {
       return;
     }
@@ -2391,8 +2136,7 @@ class NpuCachingAllocator : public NPUAllocator {
       AT_ERROR("invalid device pointer: ", ptr.get());
     }
 
-    if (block->stream !=
-        c10_npu::getCurrentNPUStream(block->device).stream(false)) {
+    if (block->stream != deviceAPI.getCurrentStream(block->device)) {
       // If the Stream applying for tensor block different from
       // the stream of submiting event wait task in HCCL synchronize()
       // method, the recordSteam can not be erased.
@@ -2423,14 +2167,10 @@ class NpuCachingAllocator : public NPUAllocator {
     if (force_uncached_allocator()) {
       deleteFunc = &uncached_delete;
       size_t alloc_size = size + 32;
-      NPU_CHECK_ERROR(c10_npu::acl::AclrtMallocAlign32(
-          &devPtr,
-          alloc_size,
-          aclrtMemMallocPolicy::ACL_MEM_MALLOC_HUGE_FIRST));
+      NPU_CHECK_ERROR(deviceAPI.memAlloc(&devPtr, alloc_size));
     } else {
       if (size != 0) {
-        this->malloc(
-            &devPtr, device, size, c10_npu::getCurrentNPUStreamNoWait(device));
+        this->malloc(&devPtr, device, size, deviceAPI.getCurrentStream(device));
       }
     }
     return {
@@ -2483,11 +2223,11 @@ class NpuCachingAllocator : public NPUAllocator {
     int device = 0;
     NPU_CHECK_ERROR(c10_npu::GetDevice(&device));
     void* r = nullptr;
-    malloc(&r, device, nbytes, c10_npu::getCurrentNPUStreamNoWait(device));
+    malloc(&r, device, nbytes, deviceAPI.getCurrentStream(device));
     return r;
   }
 
-  void* raw_alloc_with_stream(size_t nbytes, aclrtStream stream) override {
+  void* raw_alloc_with_stream(size_t nbytes, void* stream) override {
     if (nbytes == 0) {
       return nullptr;
     }
@@ -2570,6 +2310,7 @@ struct BackendStaticInitializer {
   }
 };
 
+DeviceAPI deviceAPI;
 std::atomic<NPUAllocator*> allocator;
 BackendStaticInitializer backend_static_initializer;
 

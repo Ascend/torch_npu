@@ -1,10 +1,10 @@
 #pragma once
 
 #include <c10/core/Allocator.h>
+#include <c10/core/Stream.h>
 #include <c10/util/Registry.h>
 #include <c10/util/SmallVector.h>
 #include "npu/core/npu/NPUMacros.h"
-#include "npu/core/npu/NPUStream.h"
 #include "npu/core/npu/register/OptionsManager.h"
 
 #include <atomic>
@@ -19,7 +19,7 @@ C10_NPU_API std::mutex* getFreeMutex();
 // block inside of already allocated area.
 class FreeMemoryCallback {
  public:
-  virtual ~FreeMemoryCallback() {};
+  virtual ~FreeMemoryCallback(){};
   virtual bool Execute() = 0;
 };
 
@@ -111,7 +111,7 @@ struct BlockInfo {
 struct SegmentInfo {
   int64_t device = 0;
   int64_t address = 0;
-  aclrtStream stream = 0;
+  void* stream = 0;
   int64_t total_size = 0;
   int64_t requested_size = 0;
   int64_t allocated_size = 0;
@@ -130,10 +130,10 @@ struct TraceEntry {
                     // it is still in use on another stream via
                     // record_stream This event is generated when a free
                     // actually completes.
-    SEGMENT_ALLOC, // a call to AclrtMalloc to get more memory from the OS
-    SEGMENT_FREE, // a call to aclrtFree to return memory to the OS (e.g. to
+    SEGMENT_ALLOC, // a call to malloc to get more memory from the OS
+    SEGMENT_FREE, // a call to free to return memory to the OS (e.g. to
                   // defragment or empty_caches)
-    SEGMENT_MAP, // a call to AclrtMapMem (used with expandable_segments)
+    SEGMENT_MAP, // a call to memMap (used with expandable_segments)
     SEGMENT_UNMAP, // unmap part of a segment (used with expandable
                    // segments)
     SNAPSHOT, // a call to snapshot, used to correlate memory snapshots to
@@ -146,7 +146,7 @@ struct TraceEntry {
       int device,
       int64_t addr,
       size_t size,
-      aclrtStream stream,
+      void* stream,
       std::shared_ptr<c10::GatheredContext> context = nullptr)
       : action_(action),
         device_(device),
@@ -158,7 +158,7 @@ struct TraceEntry {
   int device_;
   int64_t addr_; // for OOM, this is the amount of free bytes reported by cuda
   std::shared_ptr<c10::GatheredContext> context_;
-  aclrtStream stream_;
+  void* stream_;
   int64_t size_;
 };
 
@@ -180,10 +180,24 @@ using OutOfMemoryObserver = std::function<void(
     int64_t device_total,
     int64_t device_free)>;
 
+struct SegmentRange {
+  char* ptr;
+  size_t size;
+  SegmentRange(void* p, size_t s) : ptr(static_cast<char*>(p)), size(s) {}
+};
+
+class ExpandableSegment {
+ public:
+  virtual SegmentRange map(SegmentRange range) = 0;
+  virtual SegmentRange unmap(SegmentRange range) = 0;
+  virtual size_t size() const = 0;
+  virtual char* ptr() const = 0;
+};
+
 class NPUAllocator : public c10::Allocator {
  public:
   virtual void* raw_alloc(size_t nbytes) = 0;
-  virtual void* raw_alloc_with_stream(size_t nbytes, aclrtStream stream) = 0;
+  virtual void* raw_alloc_with_stream(size_t nbytes, void* stream) = 0;
   virtual void raw_delete(void* ptr) = 0;
   virtual void init(int device_count) = 0;
   virtual bool initialized() = 0;
@@ -194,12 +208,8 @@ class NPUAllocator : public c10::Allocator {
       size_t* cachedAndFree,
       size_t* largestBlock) = 0;
   virtual void* getBaseAllocation(void* ptr, size_t* size) = 0;
-  virtual void recordStream(
-      const c10::DataPtr& ptr,
-      c10_npu::NPUStream stream) = 0;
-  virtual void eraseStream(
-      const c10::DataPtr& ptr,
-      c10_npu::NPUStream stream) = 0;
+  virtual void recordStream(const c10::DataPtr& ptr, c10::Stream stream) = 0;
+  virtual void eraseStream(const c10::DataPtr& ptr, c10::Stream stream) = 0;
   virtual DeviceStats getDeviceStats(int device) = 0;
   virtual void resetAccumulatedStats(int device) = 0;
   virtual void resetPeakStats(int device) = 0;
@@ -228,6 +238,31 @@ class NPUAllocator : public c10::Allocator {
 // is no different than loading a pointer.
 C10_NPU_API extern std::atomic<NPUAllocator*> allocator;
 
+struct DeviceAPI {
+  // Returns the current stream for the given device
+  std::function<void*(c10::DeviceIndex)> getCurrentStream;
+  // ExpandableSegment factory
+  std::function<ExpandableSegment*(int device, void* stream, size_t size)>
+      createExpandableSegment;
+  // e.g. cudaFree
+  std::function<int(void* devPtr)> memFree;
+  // e.g. cudaMalloc
+  std::function<int(void** devPtr, size_t size)> memAlloc;
+  // e.g. cudaMemGetInfo
+  std::function<int(size_t* free, size_t* total)> memGetInfo;
+  // e.g. cuMemAddressFree
+  std::function<int(void* ptr, size_t size)> memAddressFree;
+  // e.g. cuMemAddressReserve
+  std::function<int(
+      void** virPtr,
+      size_t size,
+      size_t alignment,
+      void* expectPtr,
+      uint64_t flags)>
+      memAddressReserve;
+};
+C10_NPU_API extern DeviceAPI deviceAPI;
+
 inline NPUAllocator* get() {
   return allocator.load();
 }
@@ -237,7 +272,7 @@ inline void* raw_alloc(size_t nbytes) {
   return get()->raw_alloc(nbytes);
 }
 
-inline void* raw_alloc_with_stream(size_t nbytes, aclrtStream stream) {
+inline void* raw_alloc_with_stream(size_t nbytes, void* stream) {
   return get()->raw_alloc_with_stream(nbytes, stream);
 }
 
@@ -245,9 +280,8 @@ inline void raw_delete(void* ptr) {
   return get()->raw_delete(ptr);
 }
 
-inline void init() {
-  uint32_t device_count = 0;
-  NPU_CHECK_ERROR(aclrtGetDeviceCount(&device_count));
+inline void init(int device_count, DeviceAPI& deviceAPI_) {
+  deviceAPI = deviceAPI_;
   return get()->init(device_count);
 }
 
@@ -267,11 +301,11 @@ inline void* getBaseAllocation(void* ptr, size_t* size) {
   return get()->getBaseAllocation(ptr, size);
 }
 
-inline void recordStream(const c10::DataPtr& ptr, c10_npu::NPUStream stream) {
+inline void recordStream(const c10::DataPtr& ptr, c10::Stream stream) {
   return get()->recordStream(ptr, stream);
 }
 
-inline void eraseStream(const c10::DataPtr& ptr, c10_npu::NPUStream stream) {
+inline void eraseStream(const c10::DataPtr& ptr, c10::Stream stream) {
   return get()->eraseStream(ptr, stream);
 }
 
