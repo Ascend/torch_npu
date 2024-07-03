@@ -4,6 +4,7 @@
 
 #include "npu/core/npu/NPUFunctions.h"
 
+#include "aten/BaseGeneratorImpl.h"
 #include "aten/NPUGeneratorImpl.h"
 #include "aten/NPUNativeFunctions.h"
 
@@ -82,57 +83,11 @@ at::Generator createNPUGenerator(c10::DeviceIndex device_index) {
 } // namespace detail
 
 /**
- * Note [Why enforce RNG offset % 4 == 0?]
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- * Curand philox does allow offsets that aren't a multiple of 4.
- * But jit kernels don't use curand, they use a custom "Philox" class (see
- * torch/csrc/jit/tensorexpr/npu_random.h or
- * torch/csrc/jit/codegen/npu/runtime/random_numbers.cu).
- * The "Philox" constructor computes offset/4 (a uint64_t division) to locate
- * its internal start in its virtual bitstream viewed as 128-bit chunks, then,
- * when called in a thread, returns one 32-bit chunk at a time from that start
- * in the bitstream. In other words, if the incoming offset is not a multiple of
- * 4, each thread might repeat some previously-generated 32-bit values in the
- * bitstream.
- */
-
-/**
  * NPUGeneratorImpl class implementation
  */
 NPUGeneratorImpl::NPUGeneratorImpl(c10::DeviceIndex device_index)
-    : c10::GeneratorImpl{
-          c10::Device(c10::DeviceType::PrivateUse1, device_index),
-          c10::DispatchKeySet(c10::DispatchKey::PrivateUse1)} {
+    : BaseGeneratorImpl(device_index) {
   // at::npu::assertNotCapturing("Cannot construct a new NPUGeneratorImpl");
-}
-
-/**
- * Sets the seed to be used by curandStatePhilox4_32_10
- * Resets the philox_offset_per_thread_ to 0
- *
- * See Note [Acquire lock when using random generators]
- */
-void NPUGeneratorImpl::set_current_seed(uint64_t seed) {
-  seed_ = seed;
-  philox_offset_per_thread_ = 0;
-}
-
-/**
- * Sets the offset to be used by curandStatePhilox4_32_10
- *
- * See Note [Acquire lock when using random generators]
- */
-void NPUGeneratorImpl::set_offset(uint64_t offset) {
-  philox_offset_per_thread_ = offset;
-}
-
-/**
- * Gets the current offset of NPUGeneratorImpl.
- */
-uint64_t NPUGeneratorImpl::get_offset() const {
-  // Debatable if get_offset() should be allowed in captured regions.
-  // Conservatively disallow it for now.
-  return philox_offset_per_thread_;
 }
 
 #define CAPTURE_DEFAULT_GENS_MSG                                                    \
@@ -140,28 +95,6 @@ uint64_t NPUGeneratorImpl::get_offset() const {
   "generator on the device that's current when capture begins. "                    \
   "If you need a non-default (user-supplied) generator, or a generator on another " \
   "device, please file an issue."
-
-/**
- * Gets the current seed of NPUGeneratorImpl.
- */
-uint64_t NPUGeneratorImpl::current_seed() const {
-  // Debatable if current_seed() should be allowed in captured regions.
-  // Conservatively disallow it for now.
-  return seed_;
-}
-
-/**
- * Gets a nondeterministic random number from /dev/urandom or time,
- * seeds the CPUGeneratorImpl with it and then returns that number.
- *
- * You can move this function to Generator.cpp if the algorithm
- * in getNonDeterministicRandom is unified for both CPU and NPU
- */
-uint64_t NPUGeneratorImpl::seed() {
-  auto random = c10::detail::getNonDeterministicRandom(true);
-  this->set_current_seed(random);
-  return random;
-}
 
 /**
  * Gets the current internal state of NpuGeneratorImpl. The internal

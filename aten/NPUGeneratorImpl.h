@@ -5,6 +5,7 @@
 #include <ATen/core/Generator.h>
 #include <c10/core/GeneratorImpl.h>
 #include <limits>
+#include "aten/BaseGeneratorImpl.h"
 #include "npu/core/npu/NPUMacros.h"
 
 namespace at_npu {
@@ -117,18 +118,13 @@ struct PhiloxNpuState {
   bool captured_ = false;
 };
 
-struct TORCH_NPU_API NPUGeneratorImpl : public c10::GeneratorImpl {
+struct TORCH_NPU_API NPUGeneratorImpl : public at::BaseGeneratorImpl {
   // Constructors
   NPUGeneratorImpl(c10::DeviceIndex device_index = -1);
   ~NPUGeneratorImpl() = default;
 
   // NPUGeneratorImpl methods
   std::shared_ptr<NPUGeneratorImpl> clone() const;
-  void set_current_seed(uint64_t seed) override;
-  void set_offset(uint64_t offset) override;
-  uint64_t get_offset() const override;
-  uint64_t current_seed() const override;
-  uint64_t seed() override;
   void set_state(const c10::TensorImpl& new_state) override;
   c10::intrusive_ptr<c10::TensorImpl> get_state() const override;
   void set_philox_offset_per_thread(uint64_t offset);
