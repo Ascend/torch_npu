@@ -16,7 +16,6 @@ project(TORCHNPU CXX C)
 
 set(LINUX TRUE)
 set(CMAKE_INSTALL_MESSAGE NEVER)
-# set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(DEFINED TORCH_VERSION)
@@ -30,9 +29,9 @@ set(CMAKE_SKIP_BUILD_RPATH  FALSE)
 set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 set(CMAKE_INSTALL_RPATH "${RPATH_VALUE}/lib/:${RPATH_VALUE}/")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
-SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
-SET(CMAKE_CXX_FLAGS_RELEASE "-O2")
-SET(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
+set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 
 # check and set CMAKE_CXX_STANDARD
 string(FIND "${CMAKE_CXX_FLAGS}" "-std=c++" env_cxx_standard)
@@ -155,7 +154,6 @@ set(CMAKE_CXX_FLAGS "-fabi-version=11 ${CMAKE_CXX_FLAGS}")
 
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/aten)
-include_directories(${PROJECT_SOURCE_DIR}/backend/npu/impl/acl/include)
 include_directories(${PROJECT_SOURCE_DIR}/backend/npu/impl/acl/include)
 
 # Set installed PyTorch dir
