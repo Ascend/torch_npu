@@ -1,7 +1,0 @@
-set(ATEN_TEST_ROOT "${PROJECT_SOURCE_DIR}/test/cpp/aten")
-
-list(APPEND ATEN_TEST_SRCS
-${ATEN_TEST_ROOT}/npu_generator_test.cpp
-)
-
-set(ATEN_TEST_SRCS ${ATEN_TEST_SRCS} PARENT_SCOPE)
