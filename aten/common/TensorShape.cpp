@@ -12,13 +12,13 @@
 #include <torch/library.h>
 #include <algorithm>
 #include <vector>
-#include "npu/core/npu/NPUException.h"
+#include "backend/npu/impl/core/NPUException.h"
 
 #include "aten/NPUNativeFunctions.h"
 #include "aten/common/FormatCastHelper.h"
 #include "aten/common/ResizeNpu.h"
-#include "npu/framework/InferFormat.h"
-#include "npu/acl/include/acl/acl_base.h"
+#include "backend/npu/impl/framework/InferFormat.h"
+#include "backend/npu/impl/acl/include/acl/acl_base.h"
 
 namespace {
 // Named type instead of a pair/tuple so that we can be sure to

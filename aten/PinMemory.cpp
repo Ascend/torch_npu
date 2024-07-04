@@ -3,9 +3,9 @@
 #include <ATen/NativeFunctions.h>
 #include <ATen/TensorUtils.h>
 #include <c10/core/Storage.h>
-#include "npu/core/npu/NPUException.h"
-#include "npu/core/npu/NPUFunctions.h"
-#include "npu/core/npu/THNPUCachingHostAllocator.h"
+#include "backend/npu/impl/core/NPUException.h"
+#include "backend/npu/NPUFunctions.h"
+#include "backend/npu/THNPUCachingHostAllocator.h"
 
 #define TORCH_ASSERT_ONLY_METHOD_OPERATORS
 #include <ATen/core/Tensor.h>

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <c10/core/TensorOptions.h>
-#include "npu/core/npu/NPUException.h"
+#include "backend/npu/impl/core/NPUException.h"
 
 namespace at_npu {
 namespace native {

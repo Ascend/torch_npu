@@ -4,10 +4,10 @@
 
 #include "aten/NPUNativeFunctions.h"
 #include "aten/common/ResizeNpu.h"
-#include "npu/core/NPUBridge.h"
-#include "npu/core/NPUStorageImpl.h"
-#include "npu/core/npu/NPUCachingAllocator.h"
-#include "npu/framework/StorageDescHelper.h"
+#include "backend/npu/impl/core/NPUBridge.h"
+#include "backend/npu/NPUStorageImpl.h"
+#include "backend/npu/NPUCachingAllocator.h"
+#include "backend/npu/impl/framework/StorageDescHelper.h"
 
 namespace at_npu {
 namespace native {

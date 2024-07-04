@@ -1,7 +1,7 @@
 #pragma once
 #include <c10/core/TensorOptions.h>
 #include "aten/NPUNativeFunctions.h"
-#include "npu/core/npu/sys_ctrl/npu_sys_ctrl.h"
+#include "backend/npu/impl/core/sys_ctrl/npu_sys_ctrl.h"
 
 namespace torch_npu {
 namespace utils {

@@ -3,7 +3,7 @@
 
 #include <ATen/ATen.h>
 
-#include "npu/acl/include/acl/acl_base.h"
+#include "backend/npu/impl/acl/include/acl/acl_base.h"
 
 namespace at_npu {
 namespace native {

@@ -4,10 +4,10 @@
 #include <torch/csrc/Generator.h>
 #include <torch/csrc/profiler/python/combined_traceback.h>
 
-#include "npu/core/npu/NPUCachingAllocator.h"
-#include "npu/core/npu/THNPUCachingHostAllocator.h"
-#include "npu/core/npu/npu_log.h"
-#include "npu/core/npu/sys_ctrl/npu_sys_ctrl.h"
+#include "backend/npu/NPUCachingAllocator.h"
+#include "backend/npu/THNPUCachingHostAllocator.h"
+#include "backend/npu/impl/core/npu_log.h"
+#include "backend/npu/impl/core/sys_ctrl/npu_sys_ctrl.h"
 #include "torch_npu/csrc/npu/Event.h"
 #include "torch_npu/csrc/npu/Module.h"
 #include "torch_npu/csrc/utils/AutocastMode.h"

@@ -17,11 +17,11 @@
 #include "aten/NPUNativeFunctions.h"
 #include "aten/NPUOpApiNativeFunctions.h"
 #include "aten/common/InnerNpuNativeFunction.h"
-#include "npu/core/npu/NPUGuard.h"
-#include "npu/core/npu/NPUPeerToPeerAccess.h"
-#include "npu/core/npu/THNPUCachingHostAllocator.h"
-#include "npu/framework/contiguous/ContiguousOpt.h"
-#include "npu/framework/utils/CalcuOpUtil.h"
+#include "backend/npu/impl/core/NPUGuard.h"
+#include "backend/npu/impl/core/NPUPeerToPeerAccess.h"
+#include "backend/npu/THNPUCachingHostAllocator.h"
+#include "backend/npu/impl/framework/contiguous/ContiguousOpt.h"
+#include "backend/npu/impl/framework/utils/CalcuOpUtil.h"
 #include "third_party/op-plugin/op_plugin/utils/op_api_common.h"
 
 namespace at_npu {

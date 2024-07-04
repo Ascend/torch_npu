@@ -1,8 +1,8 @@
 #include <ATen/NamedTensorUtils.h>
 
 #include "aten/NPUNativeFunctions.h"
-#include "npu/framework/utils/CalcuOpUtil.h"
-#include "npu/framework/utils/OpAdapter.h"
+#include "backend/npu/impl/framework/utils/CalcuOpUtil.h"
+#include "backend/npu/impl/framework/utils/OpAdapter.h"
 
 namespace at_npu {
 namespace native {

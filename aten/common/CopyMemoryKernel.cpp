@@ -1,14 +1,14 @@
 #include <ATen/ATen.h>
 
 #include "aten/NPUNativeFunctions.h"
-#include "npu/core/NPUBridge.h"
-#include "npu/core/npu/NPUException.h"
-#include "npu/core/npu/NPUGuard.h"
-#include "npu/core/npu/NPUStream.h"
-#include "npu/core/npu/interface/AsyncTaskQueueInterface.h"
-#include "npu/framework/FormatHelper.h"
-#include "npu/framework/utils/CalcuOpUtil.h"
-#include "npu/acl/include/acl/acl.h"
+#include "backend/npu/impl/core/NPUBridge.h"
+#include "backend/npu/impl/core/NPUException.h"
+#include "backend/npu/impl/core/NPUGuard.h"
+#include "backend/npu/NPUStream.h"
+#include "backend/npu/impl/core/interface/AsyncTaskQueueInterface.h"
+#include "backend/npu/impl/framework/FormatHelper.h"
+#include "backend/npu/impl/framework/utils/CalcuOpUtil.h"
+#include "backend/npu/impl/acl/include/acl/acl.h"
 
 namespace at_npu {
 namespace native {

@@ -1,6 +1,6 @@
 #include <torch/csrc/utils/python_stub.h>
-#include "npu/core/npu/NPUException.h"
-#include "npu/core/npu/NPUMacros.h"
+#include "backend/npu/impl/core/NPUException.h"
+#include "backend/npu/impl/core/NPUMacros.h"
 
 namespace torch_npu {
 namespace autocast {

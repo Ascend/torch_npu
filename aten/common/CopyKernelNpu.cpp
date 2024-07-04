@@ -2,14 +2,14 @@
 #include <c10/core/Scalar.h>
 
 #include "aten/common/InnerNpuNativeFunction.h"
-#include "npu/core/NPUBridge.h"
-#include "npu/core/NPUStorageImpl.h"
-#include "npu/core/npu/NPUGuard.h"
-#include "npu/core/npu/NPUStream.h"
-#include "npu/core/npu/interface/AsyncTaskQueueInterface.h"
-#include "npu/framework/StorageDescHelper.h"
-#include "npu/framework/utils/CalcuOpUtil.h"
-#include "npu/framework/utils/OpAdapter.h"
+#include "backend/npu/impl/core/NPUBridge.h"
+#include "backend/npu/NPUStorageImpl.h"
+#include "backend/npu/impl/core/NPUGuard.h"
+#include "backend/npu/NPUStream.h"
+#include "backend/npu/impl/core/interface/AsyncTaskQueueInterface.h"
+#include "backend/npu/impl/framework/StorageDescHelper.h"
+#include "backend/npu/impl/framework/utils/CalcuOpUtil.h"
+#include "backend/npu/impl/framework/utils/OpAdapter.h"
 #include "op_plugin/OpInterface.h"
 
 namespace at_npu {

@@ -1,6 +1,6 @@
 #include "aten/mirror/NPUTensorIterator.h"
 #include "aten/mirror/NPUTypeProperties.h"
-#include "npu/core/npu/NPUException.h"
+#include "backend/npu/impl/core/NPUException.h"
 
 namespace at_npu {
 namespace native {

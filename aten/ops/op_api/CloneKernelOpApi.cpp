@@ -16,7 +16,7 @@
 
 #include "aten/NPUNativeFunctions.h"
 #include "aten/NPUOpApiNativeFunctions.h"
-#include "npu/framework/utils/OpPreparation.h"
+#include "backend/npu/impl/framework/utils/OpPreparation.h"
 #include "third_party/op-plugin/op_plugin/utils/op_api_common.h"
 
 namespace at_npu {

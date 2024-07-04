@@ -373,7 +373,7 @@ def build_deps():
 def configure_extension_build():
     include_directories = [
         BASE_DIR,
-        os.path.join(BASE_DIR, "npu/acl/include"),
+        os.path.join(BASE_DIR, "backend/npu/impl/acl/include"),
     ]
 
     extra_link_args = []

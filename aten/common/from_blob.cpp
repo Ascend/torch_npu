@@ -4,12 +4,12 @@
 #include <c10/core/Allocator.h>
 #include "aten/common/TensorFactories.h"
 #include "aten/common/from_blob.h"
-#include "npu/core/NPUStorageImpl.h"
-#include "npu/core/npu/NPUCachingAllocator.h"
-#include "npu/core/npu/NPUException.h"
-#include "npu/core/npu/NPUGuard.h"
-#include "npu/framework/StorageDescHelper.h"
-#include "npu/framework/utils/OpAdapter.h"
+#include "backend/npu/NPUStorageImpl.h"
+#include "backend/npu/NPUCachingAllocator.h"
+#include "backend/npu/impl/core/NPUException.h"
+#include "backend/npu/impl/core/NPUGuard.h"
+#include "backend/npu/impl/framework/StorageDescHelper.h"
+#include "backend/npu/impl/framework/utils/OpAdapter.h"
 
 namespace at_npu {
 

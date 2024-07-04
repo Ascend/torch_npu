@@ -9,7 +9,7 @@
 #include "aten/CustomRedispatch.h"
 #include "aten/NPUNativeFunctions.h"
 #include "aten/VariableType.h"
-#include "npu/framework/autograd/FunctionsManual.h"
+#include "backend/npu/impl/framework/autograd/FunctionsManual.h"
 
 // ${generated_comment}
 

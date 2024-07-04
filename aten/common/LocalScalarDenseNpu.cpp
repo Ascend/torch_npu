@@ -2,10 +2,10 @@
 #include <ATen/NativeFunctions.h>
 
 #include "aten/NPUNativeFunctions.h"
-#include "npu/core/npu/NPUStream.h"
-#include "npu/framework/utils/CalcuOpUtil.h"
-#include "npu/acl/include/acl/acl_base.h"
-#include "npu/acl/include/acl/acl_rt.h"
+#include "backend/npu/NPUStream.h"
+#include "backend/npu/impl/framework/utils/CalcuOpUtil.h"
+#include "backend/npu/impl/acl/include/acl/acl_base.h"
+#include "backend/npu/impl/acl/include/acl/acl_rt.h"
 
 namespace at_npu {
 namespace native {

@@ -1,6 +1,6 @@
 #pragma once
 #include <ATen/core/Tensor.h>
-#include "npu/core/npu/NPUMacros.h"
+#include "backend/npu/impl/core/NPUMacros.h"
 
 namespace at_npu {
 

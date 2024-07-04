@@ -3,7 +3,7 @@
 #include <ATen/native/CPUFallback.h>
 #include <torch/library.h>
 
-#include "npu/core/npu/NPUException.h"
+#include "backend/npu/impl/core/NPUException.h"
 
 /*
  * This file implements a variable fallback kernel for custom operators.

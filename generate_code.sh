@@ -11,14 +11,19 @@ IFS='.' read -ra version_parts <<< "$pytorch_version"
 
 pytorch_dir="v${version_parts[0]}r${version_parts[1]}"
 
+# file-level
+find $CDIR/third_party/op-plugin -name "*.h" -o -name "*.cpp" -o -name "*.hpp" | \
+xargs -I {} sed -i "s/torch_npu\/csrc\/core\/npu\/NPUStream.h/backend\/npu\/NPUStream.h/g" {}
+
+# derectory-level
 find $CDIR/third_party/op-plugin -name "*.h" -o -name "*.cpp" -o -name "*.hpp" | \
 xargs -I {} sed -i "s/torch_npu\/csrc\/aten/aten/g" {}
 find $CDIR/third_party/op-plugin -name "*.h" -o -name "*.cpp" -o -name "*.hpp" | \
-xargs -I {} sed -i "s/torch_npu\/csrc\/core/npu\/core/g" {}
+xargs -I {} sed -i "s/torch_npu\/csrc\/core\/npu/backend\/npu\/impl\/core/g" {}
 find $CDIR/third_party/op-plugin -name "*.h" -o -name "*.cpp" -o -name "*.hpp" | \
-xargs -I {} sed -i "s/torch_npu\/csrc\/framework/npu\/framework/g" {}
+xargs -I {} sed -i "s/torch_npu\/csrc\/framework/backend\/npu\/impl\/framework/g" {}
 find $CDIR/third_party/op-plugin -name "*.h" -o -name "*.cpp" -o -name "*.hpp" | \
-xargs -I {} sed -i "s/\"third_party\/acl\/inc/\"npu\/acl\/include/g" {}
+xargs -I {} sed -i "s/\"third_party\/acl\/inc/\"backend\/npu\/impl\/acl\/include/g" {}
 
 file=$CDIR/third_party/op-plugin/gencode.sh
 

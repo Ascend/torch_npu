@@ -3,7 +3,7 @@
 
 #include "aten/NPUNativeFunctions.h"
 #include "aten/common/ResizeNpu.h"
-#include "npu/framework/FormatHelper.h"
+#include "backend/npu/impl/framework/FormatHelper.h"
 
 namespace at_npu {
 namespace native {

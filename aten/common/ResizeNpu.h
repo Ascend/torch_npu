@@ -2,14 +2,14 @@
 
 #include <ATen/ATen.h>
 
-#include "npu/core/NPUBridge.h"
-#include "npu/core/NPUStorageImpl.h"
-#include "npu/core/npu/NPUStream.h"
-#include "npu/core/npu/interface/AsyncTaskQueueInterface.h"
-#include "npu/framework/FormatHelper.h"
-#include "npu/framework/StorageDescHelper.h"
-#include "npu/framework/utils/CalcuOpUtil.h"
-#include "npu/framework/utils/NpuUtils.h"
+#include "backend/npu/impl/core/NPUBridge.h"
+#include "backend/npu/NPUStorageImpl.h"
+#include "backend/npu/NPUStream.h"
+#include "backend/npu/impl/core/interface/AsyncTaskQueueInterface.h"
+#include "backend/npu/impl/framework/FormatHelper.h"
+#include "backend/npu/impl/framework/StorageDescHelper.h"
+#include "backend/npu/impl/framework/utils/CalcuOpUtil.h"
+#include "backend/npu/impl/framework/utils/NpuUtils.h"
 
 namespace at_npu {
 namespace native {

@@ -393,9 +393,9 @@ def gen_dispatcher_registrations(
     native_func_header = """\
 #include "aten/NPUNativeFunctions.h"
 #include "aten/NPUOpApiNativeFunctions.h"
-#include "npu/framework/interface/EnvVariables.h"
-#include "npu/framework/FormatHelper.h"
-#include "npu/framework/utils/ForceAclnnList.h"
+#include "backend/npu/impl/framework/interface/EnvVariables.h"
+#include "backend/npu/impl/framework/FormatHelper.h"
+#include "backend/npu/impl/framework/utils/ForceAclnnList.h"
 #include "op_plugin/OpInterface.h"
 """
     static_template = CodeTemplate(

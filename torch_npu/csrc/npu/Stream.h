@@ -3,8 +3,8 @@
 
 #include <torch/csrc/Stream.h>
 #include <torch/csrc/python_headers.h>
-#include "npu/core/npu/NPUMacros.h"
-#include "npu/core/npu/NPUStream.h"
+#include "backend/npu/impl/core/NPUMacros.h"
+#include "backend/npu/NPUStream.h"
 
 struct THNPStream : THPStream {
   c10_npu::NPUStream npu_stream;

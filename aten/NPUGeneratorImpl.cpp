@@ -2,7 +2,7 @@
 #include <ATen/core/GeneratorForPrivateuseone.h>
 #include <c10/core/StreamGuard.h>
 
-#include "npu/core/npu/NPUFunctions.h"
+#include "backend/npu/NPUFunctions.h"
 
 #include "aten/BaseGeneratorImpl.h"
 #include "aten/NPUGeneratorImpl.h"

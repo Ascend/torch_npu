@@ -2,7 +2,7 @@
 
 #include "aten/NPUNativeFunctions.h"
 #include "aten/common/InnerNpuNativeFunction.h"
-#include "npu/framework/utils/NpuUtils.h"
+#include "backend/npu/impl/framework/utils/NpuUtils.h"
 
 namespace at_npu {
 namespace native {

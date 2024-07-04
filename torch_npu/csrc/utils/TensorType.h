@@ -1,7 +1,7 @@
 #include <torch/csrc/utils/tensor_new.h>
 
-#include "npu/core/npu/NPUFunctions.h"
-#include "npu/core/npu/NPUMacros.h"
+#include "backend/npu/NPUFunctions.h"
+#include "backend/npu/impl/core/NPUMacros.h"
 
 namespace torch_npu {
 namespace utils {

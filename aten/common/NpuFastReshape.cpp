@@ -1,8 +1,8 @@
 #include "aten/NPUNativeFunctions.h"
 #include "aten/common/InnerNpuNativeFunction.h"
-#include "npu/framework/FormatHelper.h"
-#include "npu/framework/InferFormat.h"
-#include "npu/framework/StorageDescHelper.h"
+#include "backend/npu/impl/framework/FormatHelper.h"
+#include "backend/npu/impl/framework/InferFormat.h"
+#include "backend/npu/impl/framework/StorageDescHelper.h"
 
 namespace at_npu {
 namespace native {

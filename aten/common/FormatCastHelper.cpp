@@ -1,9 +1,9 @@
 #include "aten/common/FormatCastHelper.h"
 #include "aten/CustomFunctions.h"
 #include "aten/NPUNativeFunctions.h"
-#include "npu/core/NPUBridge.h"
-#include "npu/core/npu/NPUException.h"
-#include "npu/framework/FormatHelper.h"
+#include "backend/npu/impl/core/NPUBridge.h"
+#include "backend/npu/impl/core/NPUException.h"
+#include "backend/npu/impl/framework/FormatHelper.h"
 
 namespace at_npu {
 namespace native {

@@ -1,6 +1,6 @@
 #include <torch/csrc/dynamo/compiled_autograd.h>
 
-#include "npu/framework/autograd/FunctionsManual.h"
+#include "backend/npu/impl/framework/autograd/FunctionsManual.h"
 
 #include "aten/CustomFunctions.h"
 
