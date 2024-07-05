@@ -184,4 +184,32 @@ int GetLocalDevice() {
   return local_device;
 }
 
+int32_t getDeviceUtilizationRate(int32_t device) {
+  aclrtUtilizationInfo util_info;
+  util_info.cubeUtilization = 0;
+  util_info.vectorUtilization = 0;
+  util_info.utilizationExtend = nullptr;
+  NPU_CHECK_ERROR(
+      c10_npu::acl::AclrtGetDeviceUtilizationRate(device, &util_info));
+  int32_t cube = util_info.cubeUtilization;
+  int32_t vector = util_info.vectorUtilization;
+  int32_t util_rate = 0;
+
+  // If either vector or cube supports, return its utilization rate.
+  // If both support, return the average rate: (vector + cube) / 2.
+  if (cube == DEVICE_UTILIZATION_NOT_SUPPORT &&
+      vector != DEVICE_UTILIZATION_NOT_SUPPORT) {
+    util_rate = vector;
+  } else if (
+      cube != DEVICE_UTILIZATION_NOT_SUPPORT &&
+      vector == DEVICE_UTILIZATION_NOT_SUPPORT) {
+    util_rate = cube;
+  } else if (
+      cube != DEVICE_UTILIZATION_NOT_SUPPORT &&
+      vector != DEVICE_UTILIZATION_NOT_SUPPORT) {
+    util_rate = (cube + vector) / 2;
+  }
+  return util_rate;
+}
+
 } // namespace c10_npu

@@ -263,12 +263,10 @@ void THNPModule_setDevice(int device) {
 
 PyObject* THNPModule_setDevice_wrap(PyObject* self, PyObject* arg) {
   HANDLE_TH_ERRORS
-  int device = THPUtils_unpackLong(arg);
+  int device = THPUtils_unpackInt(arg);
   {
     pybind11::gil_scoped_release no_gil;
-    c10_npu::NpuSysCtrl::SysStatus status =
-        c10_npu::NpuSysCtrl::GetInstance().Initialize(device);
-    if (status != c10_npu::NpuSysCtrl::SysStatus::INIT_SUCC) {
+    if (!torch_npu::utils::is_initialize_success(device)) {
       ASCEND_LOGE("Npu init fail.");
     }
   }
@@ -290,19 +288,19 @@ PyObject* THNPModule_getDevice_wrap(PyObject* self, PyObject* noargs) {
   int device;
   torch_npu::utils::npu_lazy_init();
   NPU_CHECK_ERROR(c10_npu::GetDevice(&device));
-  return PyLong_FromLong(device);
+  return THPUtils_packInt32(device);
   END_HANDLE_TH_ERRORS
 }
 
 PyObject* THNPModule_getDeviceCount_wrap(PyObject* self, PyObject* noargs) {
   HANDLE_TH_ERRORS
-  return PyLong_FromLong(c10_npu::device_count());
+  return THPUtils_packInt32(c10_npu::device_count());
   END_HANDLE_TH_ERRORS
 }
 
 PyObject* THNPModule_getLocalDevice_wrap(PyObject* self, PyObject* noargs) {
   HANDLE_TH_ERRORS
-  return PyLong_FromLong(c10_npu::GetLocalDevice());
+  return THPUtils_packInt32(c10_npu::GetLocalDevice());
   END_HANDLE_TH_ERRORS
 }
 
@@ -316,8 +314,8 @@ PyObject* THNPModule_npuCanDeviceAccessPeer_wrap(
     throw torch::TypeError(
         "Pybind failed to parse parameters." + PTA_ERROR(ErrCode::TYPE));
   }
-  int32_t device_id = THPUtils_unpackInt(value_1);
-  int32_t peer_device_id = THPUtils_unpackInt(value_2);
+  c10::DeviceIndex device_id = THPUtils_unpackDeviceIndex(value_1);
+  c10::DeviceIndex peer_device_id = THPUtils_unpackDeviceIndex(value_2);
   auto can_access_peer =
       c10_npu::acl::can_device_access_peer(device_id, peer_device_id);
   return PyBool_FromLong(can_access_peer);
@@ -332,34 +330,13 @@ PyObject* THNPModule_getDeviceUtilizationRate_wrap(
       THPUtils_checkLong(device_index),
       "invalid argument to getDeviceUtilizationRate",
       PTA_ERROR(ErrCode::VALUE));
-  int32_t device = static_cast<int32_t>(THPUtils_unpackUInt32(device_index));
-  aclrtUtilizationInfo util_info;
-  util_info.cubeUtilization = 0;
-  util_info.vectorUtilization = 0;
-  util_info.utilizationExtend = nullptr;
-  NPU_CHECK_ERROR(
-      c10_npu::acl::AclrtGetDeviceUtilizationRate(device, &util_info));
-  int32_t cube = util_info.cubeUtilization;
-  int32_t vector = util_info.vectorUtilization;
-  int32_t util_rate = 0;
-  // 如果vector和cube谁支持,就返回谁的使用率，如果都支持计算(vector*1+cube*1)/2
-  if (cube == DEVICE_UTILIZATION_NOT_SUPPORT &&
-      vector != DEVICE_UTILIZATION_NOT_SUPPORT) {
-    util_rate = vector;
-  } else if (
-      cube != DEVICE_UTILIZATION_NOT_SUPPORT &&
-      vector == DEVICE_UTILIZATION_NOT_SUPPORT) {
-    util_rate = cube;
-  } else if (
-      cube != DEVICE_UTILIZATION_NOT_SUPPORT &&
-      vector != DEVICE_UTILIZATION_NOT_SUPPORT) {
-    util_rate = (cube + vector) / 2;
-  }
+  int32_t device = THPUtils_unpackInt(device_index);
+  int32_t util_rate = c10_npu::getDeviceUtilizationRate(device);
   TORCH_CHECK(
       util_rate <= 100 && util_rate >= 0,
       "invalid result to util_rate",
       PTA_ERROR(ErrCode::VALUE));
-  return PyLong_FromLong(util_rate);
+  return THPUtils_packInt32(util_rate);
   END_HANDLE_TH_ERRORS
 }
 
