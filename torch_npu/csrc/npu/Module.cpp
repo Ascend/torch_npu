@@ -329,7 +329,7 @@ PyObject* THNPModule_getDeviceUtilizationRate_wrap(
       "invalid argument to getDeviceUtilizationRate",
       PTA_ERROR(ErrCode::VALUE));
   int32_t device = THPUtils_unpackInt(device_index);
-  int32_t util_rate = c10_npu::getDeviceUtilizationRate(device);
+  int32_t util_rate = c10_npu::GetDeviceUtilizationRate(device);
   TORCH_CHECK(
       util_rate <= 100 && util_rate >= 0,
       "invalid result to util_rate",

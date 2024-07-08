@@ -184,7 +184,7 @@ int GetLocalDevice() {
   return local_device;
 }
 
-int32_t getDeviceUtilizationRate(int32_t device) {
+int32_t GetDeviceUtilizationRate(int32_t device) {
   aclrtUtilizationInfo util_info;
   util_info.cubeUtilization = 0;
   util_info.vectorUtilization = 0;

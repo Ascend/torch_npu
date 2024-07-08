@@ -70,7 +70,7 @@ C10_NPU_API int ExchangeDevice(int device);
 
 C10_NPU_API int GetLocalDevice();
 
-C10_NPU_API int32_t getDeviceUtilizationRate(int32_t device);
+C10_NPU_API int32_t GetDeviceUtilizationRate(int32_t device);
 
 enum class SyncDebugMode { L_DISABLED = 0, L_WARN, L_ERROR };
 
