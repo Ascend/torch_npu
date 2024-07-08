@@ -16,7 +16,7 @@
 
 namespace c10_npu {
 namespace impl {
-
+// todo
 struct NPUGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   static constexpr c10::DeviceType static_type = c10::DeviceType::PrivateUse1;
 

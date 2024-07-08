@@ -37,6 +37,10 @@ class NpuSysCtrl {
   // Get NpuSysCtrl singleton instance
   C10_NPU_API static NpuSysCtrl& GetInstance();
 
+  C10_NPU_API static inline bool IsInitializeSuccess(int device_id = -1);
+
+  C10_NPU_API static inline bool IsFinalizeSuccess();
+
   // Environment Initialize, return SysStatus
   SysStatus Initialize(int device_id = -1);
 

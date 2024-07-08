@@ -63,9 +63,7 @@ PyObject* THPModule_npu_shutdown(PyObject* /* unused */) {
   }
 
   ASCEND_LOGI("NPU shutdown NpuSysCtrl Finalize.");
-  c10_npu::NpuSysCtrl::SysStatus status =
-      c10_npu::NpuSysCtrl::GetInstance().Finalize();
-  if (status != c10_npu::NpuSysCtrl::SysStatus::FINALIZE_SUCC) {
+  if (!c10_npu::NpuSysCtrl::IsFinalizeSuccess()) {
     ASCEND_LOGE("NPU shutdown failed.");
   } else {
     ASCEND_LOGI("NPU shutdown success.");

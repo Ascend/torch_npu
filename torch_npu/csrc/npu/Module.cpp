@@ -217,10 +217,8 @@ void RegisterNpuPluggableAllocator(PyObject* module) {
 static PyObject* THNPModule_initExtension(PyObject* self, PyObject* noargs) {
   HANDLE_TH_ERRORS {
     pybind11::gil_scoped_release no_gil;
-    c10_npu::NpuSysCtrl::SysStatus status =
-        c10_npu::NpuSysCtrl::GetInstance().Initialize();
-    if (status != c10_npu::NpuSysCtrl::SysStatus::INIT_SUCC) {
-      throw python_error();
+    if (!c10_npu::NpuSysCtrl::IsInitializeSuccess()) {
+        throw python_error();
     }
   }
   auto m = THPObjectPtr(PyImport_ImportModule("torch.npu"));
@@ -266,7 +264,7 @@ PyObject* THNPModule_setDevice_wrap(PyObject* self, PyObject* arg) {
   int device = THPUtils_unpackInt(arg);
   {
     pybind11::gil_scoped_release no_gil;
-    if (!torch_npu::utils::is_initialize_success(device)) {
+      if (!c10_npu::NpuSysCtrl::IsInitializeSuccess(device)) {
       ASCEND_LOGE("Npu init fail.");
     }
   }

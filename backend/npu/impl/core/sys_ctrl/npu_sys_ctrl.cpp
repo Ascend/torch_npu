@@ -234,6 +234,16 @@ void initCachingAllocator() {
   ASCEND_LOGD("Npu caching allocator initialize successfully");
 }
 
+inline bool NpuSysCtrl::IsInitializeSuccess(int device_id) {
+  SysStatus status = GetInstance().Initialize(device_id);
+  return status == SysStatus::INIT_SUCC;
+}
+
+inline bool NpuSysCtrl::IsFinalizeSuccess() {
+  SysStatus status = GetInstance().Finalize();
+  return status == SysStatus::FINALIZE_SUCC;
+}
+
 // Environment Initialize, return Status: SUCCESS, FAILED
 NpuSysCtrl::SysStatus NpuSysCtrl::Initialize(int device_id) {
   if (init_flag_) {
