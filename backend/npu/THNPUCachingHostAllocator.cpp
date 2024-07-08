@@ -353,9 +353,7 @@ at::Allocator* getTHNPUCachingHostAllocator() {
 
 c10::Allocator* getPinnedMemoryAllocator() {
   C10_LOG_API_USAGE_ONCE("aten.init.npu");
-  c10_npu::NpuSysCtrl::SysStatus status =
-      c10_npu::NpuSysCtrl::GetInstance().Initialize();
-  if (status != c10_npu::NpuSysCtrl::SysStatus::INIT_SUCC) {
+  if (!c10_npu::NpuSysCtrl::IsInitializeSuccess()) {
     ASCEND_LOGE("Npu init fail.");
   }
   return getTHNPUCachingHostAllocator();

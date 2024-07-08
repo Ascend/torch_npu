@@ -218,7 +218,7 @@ static PyObject* THNPModule_initExtension(PyObject* self, PyObject* noargs) {
   HANDLE_TH_ERRORS {
     pybind11::gil_scoped_release no_gil;
     if (!c10_npu::NpuSysCtrl::IsInitializeSuccess()) {
-        throw python_error();
+      throw python_error();
     }
   }
   auto m = THPObjectPtr(PyImport_ImportModule("torch.npu"));
@@ -264,7 +264,7 @@ PyObject* THNPModule_setDevice_wrap(PyObject* self, PyObject* arg) {
   int device = THPUtils_unpackInt(arg);
   {
     pybind11::gil_scoped_release no_gil;
-      if (!c10_npu::NpuSysCtrl::IsInitializeSuccess(device)) {
+    if (!c10_npu::NpuSysCtrl::IsInitializeSuccess(device)) {
       ASCEND_LOGE("Npu init fail.");
     }
   }
