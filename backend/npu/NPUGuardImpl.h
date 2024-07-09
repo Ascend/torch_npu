@@ -8,6 +8,7 @@
 #include <backend/npu/impl/acl/include/acl/acl_base.h>
 #include <backend/npu/impl/acl/include/acl/acl_rt.h>
 #include "aten/NPUNativeFunctions.h"
+#include "backend/core/impl/PrivateUse1GuardImpl.h"
 #include "backend/npu/impl/core/NPUException.h"
 #include "backend/npu/NPUFunctions.h"
 #include "backend/npu/NPUStream.h"
@@ -16,20 +17,15 @@
 
 namespace c10_npu {
 namespace impl {
+struct NPUGuardImpl final : public c10_backend::impl::PrivateUse1GuardImpl {
+  NPUGuardImpl() = default;
 
-struct NPUGuardImpl final : public c10::impl::DeviceGuardImplInterface {
-  static constexpr c10::DeviceType static_type = c10::DeviceType::PrivateUse1;
-
-  NPUGuardImpl() {}
   explicit NPUGuardImpl(c10::DeviceType t) {
     TORCH_INTERNAL_ASSERT(
         t == c10::DeviceType::PrivateUse1,
         "DeviceType must be NPU. Actual DeviceType is: ",
         t,
         PTA_ERROR(ErrCode::PARAM));
-  }
-  c10::DeviceType type() const override {
-    return c10::DeviceType::PrivateUse1;
   }
   c10::Device exchangeDevice(c10::Device d) const override {
     TORCH_INTERNAL_ASSERT(
