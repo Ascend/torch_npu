@@ -1,10 +1,10 @@
 #include <ATen/Context.h>
 #include <torch/csrc/jit/serialization/pickler.h>
 #include <torch/csrc/profiler/combined_traceback.h>
+#include <torch/csrc/utils/device_lazy_init.h>
 
 #include "csrc/npu/NPUCachingAllocator.h"
 #include "torch_npu/csrc/npu/memory_snapshot.h"
-#include "torch_npu/csrc/core/LazyInit.h"
 
 using c10_npu::NPUCachingAllocator::BlockInfo;
 using c10_npu::NPUCachingAllocator::SegmentInfo;
@@ -65,7 +65,7 @@ void _record_memory_history(
       when = c10_npu::NPUCachingAllocator::RecordContext::STATE;
     }
   }
-  torch_npu::utils::npu_lazy_init();
+  torch::utils::device_lazy_init(at::kPrivateUse1);
   c10_npu::NPUCachingAllocator::recordHistory(
       enabled.has_value(), recorder, max_entries, when);
 }

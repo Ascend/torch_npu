@@ -1,9 +1,8 @@
+#include "torch_npu/csrc/core/TensorType.h"
 #include <c10/core/DeviceType.h>
 #include <torch/csrc/autograd/utils/wrap_outputs.h>
+#include <torch/csrc/utils/device_lazy_init.h>
 #include <torch/csrc/utils/python_arg_parser.h>
-
-#include "torch_npu/csrc/core/LazyInit.h"
-#include "torch_npu/csrc/core/TensorType.h"
 
 namespace torch_npu {
 namespace utils {
@@ -55,7 +54,7 @@ static PyObject* Tensor_new(
       tensor_type.name,
       " not available. Torch not compiled with npu enabled.",
       PTA_ERROR(ErrCode::TYPE))
-  torch_npu::utils::npu_lazy_init();
+  torch::utils::device_lazy_init(at::kPrivateUse1);
   return THPVariable_Wrap(torch::utils::legacy_tensor_ctor(
       tensor_type.get_dispatch_key(),
       tensor_type.get_scalar_type(),

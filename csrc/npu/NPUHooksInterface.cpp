@@ -1,11 +1,8 @@
 #include "csrc/npu/NPUHooksInterface.h"
-#include "npu/aten/common/ResizeNpu.h"
-#include "csrc/npu/NPUStorageImpl.h"
 #include "csrc/npu/NPUFunctions.h"
+#include "csrc/npu/NPUStorageImpl.h"
+#include "npu/aten/common/ResizeNpu.h"
 #include "npu/framework/FormatHelper.h"
-#ifndef BUILD_LIBTORCH
-#include "torch_npu/csrc/core/LazyInit.h"
-#endif
 
 namespace c10_npu {
 
@@ -19,9 +16,13 @@ TORCH_DECLARE_REGISTRY(
 C10_DEFINE_REGISTRY(PrivateUse1HooksRegistry, NPUHooksInterface, NPUHooksArgs)
 
 void NPUHooksInterface::initPrivateUse1() const {
-#ifndef BUILD_LIBTORCH
-  torch_npu::utils::npu_lazy_init();
-#endif
+  c10_npu::NpuSysCtrl::SysStatus status =
+      c10_npu::NpuSysCtrl::GetInstance().Initialize();
+  TORCH_CHECK(
+      status == c10_npu::NpuSysCtrl::SysStatus::INIT_SUCC,
+      "Device init failed, status:",
+      status,
+      PTA_ERROR(ErrCode::INTERNAL));
 }
 
 bool NPUHooksInterface::hasPrimaryContext(c10::DeviceIndex device_index) const {

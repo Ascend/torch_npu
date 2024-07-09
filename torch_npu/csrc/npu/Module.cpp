@@ -12,6 +12,7 @@
 #include <torch/csrc/autograd/utils/wrap_outputs.h>
 #include <torch/csrc/profiler/python/combined_traceback.h>
 #include <torch/csrc/python_headers.h>
+#include <torch/csrc/utils/device_lazy_init.h>
 #include <torch/csrc/utils/pybind.h>
 #include <torch/csrc/utils/python_arg_parser.h>
 #include <torch/csrc/utils/python_numbers.h>
@@ -35,7 +36,6 @@
 #include "torch_npu/csrc/npu/NPUPluggableAllocator.h"
 #include "torch_npu/csrc/npu/Stream.h"
 #include "torch_npu/csrc/npu/memory_snapshot.h"
-#include "torch_npu/csrc/core/LazyInit.h"
 
 struct NPUDeviceProp {
   std::string name;
@@ -217,11 +217,7 @@ void RegisterNpuPluggableAllocator(PyObject* module) {
 static PyObject* THNPModule_initExtension(PyObject* self, PyObject* noargs) {
   HANDLE_TH_ERRORS {
     pybind11::gil_scoped_release no_gil;
-    c10_npu::NpuSysCtrl::SysStatus status =
-        c10_npu::NpuSysCtrl::GetInstance().Initialize();
-    if (status != c10_npu::NpuSysCtrl::SysStatus::INIT_SUCC) {
-      throw python_error();
-    }
+    at::globalContext().lazyInitPrivateUse1();
   }
   auto m = THPObjectPtr(PyImport_ImportModule("torch.npu"));
   if (!m) {
@@ -266,11 +262,7 @@ PyObject* THNPModule_setDevice_wrap(PyObject* self, PyObject* arg) {
   int device = THPUtils_unpackLong(arg);
   {
     pybind11::gil_scoped_release no_gil;
-    c10_npu::NpuSysCtrl::SysStatus status =
-        c10_npu::NpuSysCtrl::GetInstance().Initialize(device);
-    if (status != c10_npu::NpuSysCtrl::SysStatus::INIT_SUCC) {
-      ASCEND_LOGE("Npu init fail.");
-    }
+    at::globalContext().lazyInitPrivateUse1();
   }
 
   int pre_device = 0;
@@ -288,7 +280,7 @@ PyObject* THNPModule_setDevice_wrap(PyObject* self, PyObject* arg) {
 PyObject* THNPModule_getDevice_wrap(PyObject* self, PyObject* noargs) {
   HANDLE_TH_ERRORS
   int device;
-  torch_npu::utils::npu_lazy_init();
+  torch::utils::device_lazy_init(at::kPrivateUse1);
   NPU_CHECK_ERROR(c10_npu::GetDevice(&device));
   return PyLong_FromLong(device);
   END_HANDLE_TH_ERRORS
@@ -759,7 +751,7 @@ PyObject* THNPModule_attachOutOfMemoryObserver(
     }
     Py_XDECREF(result);
   };
-  torch_npu::utils::npu_lazy_init();
+  torch::utils::device_lazy_init(at::kPrivateUse1);
   c10_npu::NPUCachingAllocator::attachOutOfMemoryObserver(std::move(obs));
   Py_RETURN_NONE;
   END_HANDLE_TH_ERRORS
@@ -900,7 +892,7 @@ PyObject* THNPModule_setOption_wrap(PyObject* self, PyObject* arg) {
     const char* pValue = PyUnicode_AsUTF8(value);
     option[pKey] = pValue;
   }
-  torch_npu::utils::npu_lazy_init();
+  torch::utils::device_lazy_init(at::kPrivateUse1);
   {
     pybind11::gil_scoped_release no_gil;
     c10_npu::option::SetOption(option);
@@ -913,7 +905,7 @@ PyObject* THNPModule_set_run_yet_variable_to_false_wrap(
     PyObject* self,
     PyObject* noargs) {
   HANDLE_TH_ERRORS
-  torch_npu::utils::npu_set_run_yet_variable_to_false();
+  torch::utils::set_requires_device_init(at::DeviceType::PrivateUse1, true);
   Py_RETURN_NONE;
   END_HANDLE_TH_ERRORS
 }

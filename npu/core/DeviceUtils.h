@@ -2,10 +2,8 @@
 #include <ATen/ATen.h>
 #include <ATen/Tensor.h>
 #include <c10/core/TensorOptions.h>
+#include <torch/csrc/utils/device_lazy_init.h>
 #include "npu/core/sys_ctrl/npu_sys_ctrl.h"
-#ifndef BUILD_LIBTORCH
-#include "torch_npu/csrc/core/LazyInit.h"
-#endif
 
 namespace torch_npu {
 namespace utils {
@@ -59,9 +57,7 @@ inline void maybe_initialize_npu(const at::TensorOptions& options) {
           " init failed.",
           PTA_ERROR(ErrCode::INTERNAL));
     }
-#ifndef BUILD_LIBTORCH
-    torch_npu::utils::npu_lazy_init();
-#endif
+    torch::utils::device_lazy_init(at::kPrivateUse1);
   }
 }
 
@@ -77,9 +73,7 @@ inline void maybe_initialize_npu(const at::Device& device) {
           " init failed.",
           PTA_ERROR(ErrCode::INTERNAL));
     }
-#ifndef BUILD_LIBTORCH
-    torch_npu::utils::npu_lazy_init();
-#endif
+    torch::utils::device_lazy_init(at::kPrivateUse1);
   }
 }
 
