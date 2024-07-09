@@ -23,7 +23,7 @@ struct NPUGuardImpl final : public c10_backend::impl::PrivateUse1GuardImpl {
   explicit NPUGuardImpl(c10::DeviceType t) {
     TORCH_INTERNAL_ASSERT(
         t == c10::DeviceType::PrivateUse1,
-        "DeviceType must be NPU. Actual DeviceType is: ",
+        "DeviceType must be 'c10::DeviceType::PrivateUse1'. Actual DeviceType is: ",
         t,
         PTA_ERROR(ErrCode::PARAM));
   }
