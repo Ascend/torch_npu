@@ -8,8 +8,8 @@
 
 #include <ATen/NativeFunctions.h>
 #include <ATen/Operators.h>
-#include "aten/CustomFunctions.h"
-#include "backend/npu/impl/core/NPUException.h"
+#include "csrc/aten/generated/CustomFunctions.h"
+#include "npu/core/NPUException.h"
 
 namespace at_npu {
 namespace functionalization {

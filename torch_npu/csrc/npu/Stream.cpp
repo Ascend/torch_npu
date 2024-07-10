@@ -2,12 +2,12 @@
 #include <structmember.h>
 #include <torch/csrc/Device.h>
 #include <torch/csrc/THP.h>
-#include "backend/npu/impl/core/NPUGuard.h"
-#include "backend/npu/impl/core/sys_ctrl/npu_sys_ctrl.h"
+#include "npu/core/NPUGuard.h"
+#include "npu/core/sys_ctrl/npu_sys_ctrl.h"
 
-#include "backend/npu/impl/acl/include/acl/acl.h"
-#include "backend/npu/impl/acl/include/acl/acl_base.h"
-#include "backend/npu/impl/acl/include/acl/acl_rt.h"
+#include "npu/acl/include/acl/acl.h"
+#include "npu/acl/include/acl/acl_base.h"
+#include "npu/acl/include/acl/acl_rt.h"
 #include "torch_npu/csrc/npu/Module.h"
 #include "torch_npu/csrc/npu/Stream.h"
 

@@ -24,9 +24,9 @@
 #include <torch/csrc/jit/frontend/tracer.h>
 #include <torch/library.h>
 
-#include "aten/NPUNativeFunctions.h"
-#include "aten/VariableType.h"
-#include "backend/npu/impl/core/NPUException.h"
+#include "csrc/aten/generated/NPUNativeFunctions.h"
+#include "csrc/aten/generated/VariableType.h"
+#include "npu/core/NPUException.h"
 #include "op_plugin/OpInterface.h"
 
 namespace at_npu {

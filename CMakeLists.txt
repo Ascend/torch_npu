@@ -154,7 +154,8 @@ set(CMAKE_CXX_FLAGS "-fabi-version=11 ${CMAKE_CXX_FLAGS}")
 
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/aten)
-include_directories(${PROJECT_SOURCE_DIR}/backend/npu/impl/acl/include)
+include_directories(${PROJECT_SOURCE_DIR}/npu/acl/include)
+include_directories(${PROJECT_SOURCE_DIR}/third_party/op-plugin)
 
 # Set installed PyTorch dir
 if(DEFINED PYTORCH_INSTALL_DIR)
@@ -172,34 +173,41 @@ else()
   message(FATAL_ERROR "Cannot find installed Python head file directory")
 endif()
 
-# sources
+# libtroch_npu
 set(ATEN_SRCS)
 set(CORE_SRCS)
 set(FRAMEWORK_SRCS)
-set(NPU_SRCS)
-set(UTILS_SRCS)
+set(OPS_PLUGIN_SRCS)
+
 set(BACKEND_SRCS)
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/backend/npu/impl/acl/libs)
-add_subdirectory(${PROJECT_SOURCE_DIR}/backend/npu/impl/core)
-add_subdirectory(${PROJECT_SOURCE_DIR}/backend/npu/impl/framework)
+# libtorch_npu_python
+set(NPU_SRCS)
+set(UTILS_SRCS)
+set(GENERATED_SRCS)
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/aten)
-add_subdirectory(${PROJECT_SOURCE_DIR}/backend)
-
-add_subdirectory(${TORCHNPU_ROOT}/npu)
-add_subdirectory(${TORCHNPU_ROOT}/utils)
-
-set(OPS_PLUGIN_SRCS)
-# Add subdirectory of op-plugin
-include_directories(${PROJECT_SOURCE_DIR}/third_party/op-plugin)
+# libtorch_npu
+add_subdirectory(${PROJECT_SOURCE_DIR}/npu/acl/libs)
+add_subdirectory(${PROJECT_SOURCE_DIR}/npu/core)
+add_subdirectory(${PROJECT_SOURCE_DIR}/npu/framework)
+add_subdirectory(${PROJECT_SOURCE_DIR}/npu/aten)
 add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/op-plugin/op_plugin)
 
-set(CPP_SRCS ${BACKEND_SRCS} ${ATEN_SRCS} ${CORE_SRCS} ${OPS_PLUGIN_SRCS} ${FRAMEWORK_SRCS} ${NPU_SRCS} ${UTILS_SRCS} ${TORCHNPU_ROOT}/Module.cpp)
+add_subdirectory(${PROJECT_SOURCE_DIR}/csrc)
+
+# libtorch_npu_python
+add_subdirectory(${TORCHNPU_ROOT}/npu)
+add_subdirectory(${TORCHNPU_ROOT}/core)
 
 link_directories(${PYTORCH_INSTALL_DIR}/lib)
 link_directories(${PROJECT_SOURCE_DIR}/npu/acl/libs)
 
+set(NPULIB_SRCS ${NPU_SRCS} ${UTILS_SRCS} ${GENERATED_SRCS} ${TORCHNPU_ROOT}/Module.cpp)
+add_library(torch_npu_python SHARED ${NPULIB_SRCS})
+target_link_libraries(torch_npu_python PUBLIC torch_npu)
+install(TARGETS torch_npu_python LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+set(CPP_SRCS ${BACKEND_SRCS} ${ATEN_SRCS} ${CORE_SRCS} ${OPS_PLUGIN_SRCS} ${FRAMEWORK_SRCS} ${UTILS_SRCS}) # Delete UTILS_SRCS After decoupling
 add_library(${PLUGIN_NAME} SHARED ${CPP_SRCS})
 
 target_link_libraries(${PLUGIN_NAME} PUBLIC hccl ascendcl acl_op_compiler ge_runner graph)

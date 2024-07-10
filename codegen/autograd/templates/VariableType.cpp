@@ -6,10 +6,10 @@
 #include <c10/core/impl/TorchDispatchModeTLS.h>
 #include <torch/library.h>
 
-#include "aten/CustomRedispatch.h"
-#include "aten/NPUNativeFunctions.h"
-#include "aten/VariableType.h"
-#include "backend/npu/impl/framework/autograd/FunctionsManual.h"
+#include "csrc/aten/generated/CustomRedispatch.h"
+#include "csrc/aten/generated/NPUNativeFunctions.h"
+#include "csrc/aten/generated/VariableType.h"
+#include "npu/framework/autograd/FunctionsManual.h"
 
 // ${generated_comment}
 

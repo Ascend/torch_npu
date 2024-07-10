@@ -3,7 +3,7 @@
 #include <torch/csrc/Device.h>
 #include <torch/csrc/THP.h>
 #include <torch/csrc/utils/python_arg_parser.h>
-#include "backend/npu/impl/core/NPUGuard.h"
+#include "npu/core/NPUGuard.h"
 
 #include "torch_npu/csrc/npu/Event.h"
 #include "torch_npu/csrc/npu/Stream.h"

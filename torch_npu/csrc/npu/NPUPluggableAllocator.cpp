@@ -2,8 +2,8 @@
 #include <unordered_map>
 #include <utility>
 
-#include "backend/npu/NPUCachingAllocator.h"
-#include "backend/npu/impl/core/NPUGuard.h"
+#include "csrc/npu/NPUCachingAllocator.h"
+#include "npu/core/NPUGuard.h"
 #include "torch_npu/csrc/npu/NPUPluggableAllocator.h"
 
 namespace torch::npu::NPUPluggableAllocator {

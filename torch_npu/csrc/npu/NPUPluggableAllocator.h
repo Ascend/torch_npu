@@ -2,7 +2,7 @@
 
 #include <c10/core/Allocator.h>
 
-#include "backend/npu/NPUCachingAllocator.h"
+#include "csrc/npu/NPUCachingAllocator.h"
 
 #include <array>
 #include <mutex>

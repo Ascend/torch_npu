@@ -1,6 +1,6 @@
 #include <ATen/core/dispatch/Dispatcher.h>
 
-#include "aten/CustomFunctions.h"
+#include "csrc/aten/generated/CustomFunctions.h"
 
 namespace at_npu {
 namespace native {

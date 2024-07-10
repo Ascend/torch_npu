@@ -13,17 +13,20 @@ pytorch_dir="v${version_parts[0]}r${version_parts[1]}"
 
 # file-level
 find $CDIR/third_party/op-plugin -name "*.h" -o -name "*.cpp" -o -name "*.hpp" | \
-xargs -I {} sed -i "s/torch_npu\/csrc\/core\/npu\/NPUStream.h/backend\/npu\/NPUStream.h/g" {}
+xargs -I {} sed -i "s/torch_npu\/csrc\/core\/npu\/NPUStream.h/csrc\/npu\/NPUStream.h/g" {}
+find $CDIR/third_party/op-plugin -name "*.h" -o -name "*.cpp" -o -name "*.hpp" | \
+xargs -I {} sed -i "s/torch_npu\/csrc\/aten\/mirror\/NPUTypeProperties.h/npu\/aten\/mirror\/NPUTypeProperties.h/g" {}
+
 
 # derectory-level
 find $CDIR/third_party/op-plugin -name "*.h" -o -name "*.cpp" -o -name "*.hpp" | \
-xargs -I {} sed -i "s/torch_npu\/csrc\/aten/aten/g" {}
+xargs -I {} sed -i "s/torch_npu\/csrc\/aten/csrc\/aten\/generated/g" {}
 find $CDIR/third_party/op-plugin -name "*.h" -o -name "*.cpp" -o -name "*.hpp" | \
-xargs -I {} sed -i "s/torch_npu\/csrc\/core\/npu/backend\/npu\/impl\/core/g" {}
+xargs -I {} sed -i "s/torch_npu\/csrc\/core\/npu/npu\/core/g" {}
 find $CDIR/third_party/op-plugin -name "*.h" -o -name "*.cpp" -o -name "*.hpp" | \
-xargs -I {} sed -i "s/torch_npu\/csrc\/framework/backend\/npu\/impl\/framework/g" {}
+xargs -I {} sed -i "s/torch_npu\/csrc\/framework/npu\/framework/g" {}
 find $CDIR/third_party/op-plugin -name "*.h" -o -name "*.cpp" -o -name "*.hpp" | \
-xargs -I {} sed -i "s/\"third_party\/acl\/inc/\"backend\/npu\/impl\/acl\/include/g" {}
+xargs -I {} sed -i "s/\"third_party\/acl\/inc/\"npu\/acl\/include/g" {}
 
 file=$CDIR/third_party/op-plugin/gencode.sh
 
@@ -32,20 +35,20 @@ if [ -f "${file}" ]; then
 fi
 
 op_plugin_config_path=$CDIR/third_party/op-plugin/op_plugin/config/$pytorch_dir
-source_yaml="$CDIR/aten/npu_native_functions.yaml"
+source_yaml="$CDIR/csrc/aten/npu_native_functions.yaml"
 testing_source_yaml="$CDIR/test/ops_unsupport_list.yaml"
 
 op_plugin_functions_yaml_path="$op_plugin_config_path/npu_native_functions.yaml"
 
 ${python_execute} -m codegen.gen_backend_stubs  \
-  --output_dir="aten" \
+  --output_dir="csrc/aten/generated" \
   --source_yaml="$source_yaml" \
   --impl_path="$CDIR/aten" \
   --op_plugin_impl_path="$CDIR/third_party/op-plugin/op_plugin/ops" \
   --op_plugin_yaml_path="$op_plugin_config_path/op_plugin_functions.yaml"
 
 ${python_execute} -m codegen.autograd.gen_autograd \
-  --out_dir="$CDIR/aten" \
+  --out_dir="$CDIR/csrc/aten/generated" \
   --autograd_dir="$CDIR/codegen/autograd" \
   --npu_native_function_dir="$source_yaml"
 

@@ -2,7 +2,7 @@
 #include <torch/csrc/autograd/VariableTypeUtils.h>
 #include <torch/library.h>
 
-#include "aten/CustomRedispatch.h"
+#include "csrc/aten/generated/CustomRedispatch.h"
 
 // ${generated_comment}
 $ops_headers

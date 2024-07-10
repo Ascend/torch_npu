@@ -3,7 +3,7 @@ To run this file by hand from the root of the PyTorch
 repository, run:
 
 python -m codegen.autograd.gen_autograd \
-       --npu_native_function_dir="./aten/npu_native_functions.yaml" \
+       --npu_native_function_dir="./csrc/aten/npu_native_functions.yaml" \
        --out_dir=$OUTPUT_DIR \
        --autograd_dir="./codegen/autograd/"
 

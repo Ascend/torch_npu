@@ -1,6 +1,6 @@
 #include <ATen/core/dispatch/Dispatcher.h>
 
-#include "aten/CustomRedispatch.h"
+#include "csrc/aten/generated/CustomRedispatch.h"
 
 namespace at_npu {
 namespace redispatch {

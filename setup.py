@@ -373,7 +373,7 @@ def build_deps():
 def configure_extension_build():
     include_directories = [
         BASE_DIR,
-        os.path.join(BASE_DIR, "backend/npu/impl/acl/include"),
+        os.path.join(BASE_DIR, "npu/acl/include"),
     ]
 
     extra_link_args = []
@@ -407,7 +407,7 @@ def configure_extension_build():
     C = CppExtension(
         "torch_npu._C",
         sources=["torch_npu/csrc/stub.c"],
-        libraries=["torch_npu"],
+        libraries=["torch_npu_python"],
         include_dirs=include_directories,
         extra_compile_args=extra_compile_args
         + ["-fstack-protector-all"]

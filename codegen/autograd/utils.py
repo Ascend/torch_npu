@@ -93,5 +93,5 @@ _, NPU_AUTOGRAD_FUNCTION, TORCH_AUTOGRAD_FUNCTION = filt_npu_autograd_functions(
         str(Path(get_torchgen_dir()).joinpath('packaged/ATen/native/native_functions.yaml')),
         str(Path(get_torchgen_dir()).joinpath('packaged/ATen/native/tags.yaml')),
         str(Path(__file__).parent),
-        str(Path(__file__).parents[2].joinpath(f'aten/{CUSTOM_YAML_NAME}')))[-1]
+        str(Path(__file__).parents[2].joinpath(f'csrc/aten/{CUSTOM_YAML_NAME}')))[-1]
 )
