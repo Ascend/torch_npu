@@ -34,7 +34,7 @@ on:
 
 jobs:
   build:
-    name: build for python${{ matrix.python-version }}
+    name: Build for Python${{ matrix.python-version }}
     runs-on: ubuntu-latest
     defaults:
       run:

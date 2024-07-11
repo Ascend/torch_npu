@@ -1,4 +1,4 @@
-# ---[ Googletest and benchmark
+# ---[ Googletest
 if(BUILD_TEST)
   add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/googletest)
   include_directories(BEFORE SYSTEM ${PROJECT_SOURCE_DIR}/third_party/googletest/googletest/include)
