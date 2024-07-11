@@ -4,7 +4,6 @@
 
 #include "csrc/npu/NPUFunctions.h"
 
-#include "BaseGeneratorImpl.h"
 #include "NPUGeneratorImpl.h"
 #include "csrc/aten/generated/NPUNativeFunctions.h"
 

@@ -240,7 +240,7 @@ if (BUILD_TEST)
 
   target_link_libraries(${PLUGIN_NAME} PUBLIC ${PYTHON_LIBRARIES})
   add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/googletest)
-  add_subdirectory(${PROJECT_SOURCE_DIR}/test/cpp/aten)
+  add_subdirectory(${PROJECT_SOURCE_DIR}/test/cpp/npu)
 
   list(APPEND TORCH_NPU_TEST_SRCS ${ATEN_TEST_SRCS})
   message(STATUS "NPU test sources: " ${TORCH_NPU_TEST_SRCS})

@@ -5,7 +5,7 @@
 #include <ATen/core/Generator.h>
 #include <c10/core/GeneratorImpl.h>
 #include <limits>
-#include "BaseGeneratorImpl.h"
+#include "csrc/core/BaseGeneratorImpl.h"
 #include "npu/core/NPUMacros.h"
 
 namespace at_npu {
