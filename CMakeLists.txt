@@ -207,7 +207,7 @@ add_library(torch_npu_python SHARED ${NPULIB_SRCS})
 target_link_libraries(torch_npu_python PUBLIC torch_npu)
 install(TARGETS torch_npu_python LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-set(CPP_SRCS ${BACKEND_SRCS} ${ATEN_SRCS} ${CORE_SRCS} ${OPS_PLUGIN_SRCS} ${FRAMEWORK_SRCS} ${UTILS_SRCS}) # Delete UTILS_SRCS After decoupling
+set(CPP_SRCS ${BACKEND_SRCS} ${ATEN_SRCS} ${CORE_SRCS} ${OPS_PLUGIN_SRCS} ${FRAMEWORK_SRCS})
 add_library(${PLUGIN_NAME} SHARED ${CPP_SRCS})
 
 target_link_libraries(${PLUGIN_NAME} PUBLIC hccl ascendcl acl_op_compiler ge_runner graph)
