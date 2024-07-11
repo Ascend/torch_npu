@@ -1,11 +1,17 @@
+#include "csrc/npu/CachingAllocatorHelper.h"
 #include <c10/util/Optional.h>
 #include <c10/util/irange.h>
+#include "csrc/npu/NPUFunctions.h"
+#include "csrc/npu/NPUStream.h"
 #include "npu/acl/include/acl/acl_base.h"
 #include "npu/acl/include/acl/acl_rt.h"
-#include "csrc/npu/NPUCachingAllocator.h"
 #include "npu/core/npu_log.h"
 
 namespace c10_npu::NPUCachingAllocator {
+//
+//  ExpandableSegment
+//
+
 struct NPUExpandableSegment : public ExpandableSegment {
   NPUExpandableSegment(int device, void* stream, size_t size)
       : device_(device),
@@ -169,4 +175,43 @@ struct NPUExpandableSegment : public ExpandableSegment {
   size_t segment_size_;
   std::vector<c10::optional<aclrtDrvMemHandle>> handles_;
 };
+
+ExpandableSegment* createExpandableSegment(
+    int device,
+    void* stream,
+    size_t size) {
+  return new NPUExpandableSegment(device, stream, size);
+}
+
+//
+// event listener
+//
+
+class InsertEventListener : public EventListener {
+ public:
+  InsertEventListener(int device) : device(device) {}
+  void before() override {
+    compiler_ctx = aclrtContext();
+    ret_ctx = aclrtGetCurrentContext(&compiler_ctx);
+    NPU_CHECK_ERROR(aclrtSetCurrentContext(c10_npu::GetDeviceContext(device)));
+  }
+  void after() override {
+    if (ret_ctx == ACL_ERROR_NONE) {
+      NPU_CHECK_ERROR(aclrtSetCurrentContext(compiler_ctx));
+    }
+  }
+
+ private:
+  int device;
+  aclrtContext compiler_ctx;
+  aclError ret_ctx;
+};
+
+std::unique_ptr<EventListener> createInsertEventListener(int device) {
+  return std::make_unique<InsertEventListener>(device);
+}
+
+void* getCurrentStream(c10::DeviceIndex device_index) {
+  return c10_npu::getCurrentNPUStreamNoWait(device_index);
+}
 } // namespace c10_npu::NPUCachingAllocator

@@ -13,10 +13,11 @@
 #include <c10/util/flat_hash_map.h>
 #include <c10/util/irange.h>
 
+#include "Memory.h"
 #include "NPUBlockHandle.h"
-#include "npu/acl/include/acl/acl_base.h"
-#include "npu/acl/include/acl/acl_rt.h"
+#include "csrc/npu/CachingAllocatorHelper.h"
 #include "csrc/npu/NPUCachingAllocator.h"
+#include "npu/acl/include/acl/acl_base.h"
 #include "npu/core/NPUGuard.h"
 #include "npu/core/interface/AsyncTaskQueueInterface.h"
 #include "npu/core/sys_ctrl/npu_sys_ctrl.h"
@@ -359,9 +360,9 @@ class CachingAllocatorConfig {
         m_garbage_collection_threshold(0),
         m_expandable_segments(true) {
     void* ptr = nullptr;
-    auto status = deviceAPI.memAddressReserve(&ptr, 512, 0, NULL, 1);
+    auto status = memAddressReserve(&ptr, 512, 0, NULL, 1);
     if (status == ACL_ERROR_NONE) {
-      NPU_CHECK_ERROR(deviceAPI.memAddressFree(ptr, 512));
+      NPU_CHECK_ERROR(memAddressFree(ptr, 512));
     } else {
       TORCH_NPU_WARN_ONCE(
           "expandable_segments feature is not supportted and "
@@ -476,9 +477,9 @@ size_t CachingAllocatorConfig::parseExpandableSegments(
     m_expandable_segments = (config[i] == "True");
     if (m_expandable_segments) {
       void* ptr = nullptr;
-      auto status = deviceAPI.memAddressReserve(&ptr, 512, 0, NULL, 1);
+      auto status = memAddressReserve(&ptr, 512, 0, NULL, 1);
       if (status == ACL_ERROR_NONE) {
-        NPU_CHECK_ERROR(deviceAPI.memAddressFree(ptr, 512));
+        NPU_CHECK_ERROR(memAddressFree(ptr, 512));
       } else {
         NPU_CHECK_SUPPORTED_OR_ERROR(status);
         TORCH_NPU_WARN_ONCE(
@@ -696,7 +697,7 @@ class DeviceCachingAllocator {
       if (params.err == ACL_ERROR_RT_MEMORY_ALLOCATION) {
         size_t device_free;
         size_t device_total;
-        NPU_CHECK_ERROR(deviceAPI.memGetInfo(&device_free, &device_total));
+        NPU_CHECK_ERROR(memGetInfo(&device_free, &device_total));
 
         std::string allowed_info;
         if (set_fraction) {
@@ -971,7 +972,7 @@ class DeviceCachingAllocator {
   void setMemoryFraction(double fraction) {
     size_t device_free;
     size_t device_total;
-    NPU_CHECK_ERROR(deviceAPI.memGetInfo(&device_free, &device_total));
+    NPU_CHECK_ERROR(memGetInfo(&device_free, &device_total));
     allowed_memory_maximum = static_cast<size_t>(fraction * device_total);
     set_fraction = true;
   }
@@ -1183,7 +1184,7 @@ class DeviceCachingAllocator {
     }
     auto segment_size = pool->is_small ? kSmallBuffer : kLargeBuffer;
     expandable_segments_.emplace_back(
-        deviceAPI.createExpandableSegment(device, stream, segment_size));
+        createExpandableSegment(device, stream, segment_size));
 
     ExpandableSegment* es = expandable_segments_.back();
     Block* candidate = new Block(device, stream, es->size(), pool, es->ptr());
@@ -1590,7 +1591,7 @@ class DeviceCachingAllocator {
       }
       return bool(p.block);
     } else {
-      p.err = deviceAPI.memAlloc(&ptr, size);
+      p.err = memAlloc(&ptr, size);
     }
 
     if (p.err != ACL_ERROR_NONE) {
@@ -1723,7 +1724,7 @@ class DeviceCachingAllocator {
         block->device,
         context ? context : block->context_when_segment_allocated);
 
-    deviceAPI.memFree((void*)block->ptr);
+    memFree((void*)block->ptr);
     total_allocated_memory -= block->size;
 
     auto* pool = block->pool;
@@ -1859,10 +1860,8 @@ class DeviceCachingAllocator {
   }
 
   void insert_events(Block* block) {
-    aclrtContext compiler_ctx = aclrtContext();
-    aclError ret_ctx = aclrtGetCurrentContext(&compiler_ctx);
-    NPU_CHECK_ERROR(
-        aclrtSetCurrentContext(c10_npu::GetDeviceContext(block->device)));
+    auto listener = createInsertEventListener(block->device);
+    listener->before();
 
     stream_set streams(std::move(block->stream_uses));
     AT_ASSERT(block->stream_uses.empty(), PTA_ERROR(ErrCode::VALUE));
@@ -1878,9 +1877,7 @@ class DeviceCachingAllocator {
       block->event_count++;
       npu_events[stream].emplace_back(std::move(event), block);
     }
-    if (ret_ctx == ACL_ERROR_NONE) {
-      NPU_CHECK_ERROR(aclrtSetCurrentContext(compiler_ctx));
-    }
+    listener->after();
   }
 
   void process_events(const std::shared_ptr<c10::GatheredContext>& context) {
@@ -1970,7 +1967,7 @@ bool force_uncached_allocator() {
 
 static void uncached_delete(void* ptr) {
   c10_npu::npuSynchronizeDevice(true);
-  NPU_CHECK_ERROR(deviceAPI.memFree(ptr));
+  NPU_CHECK_ERROR(memFree(ptr));
 }
 
 void local_raw_delete(void* ptr);
@@ -2136,7 +2133,7 @@ class NpuCachingAllocator : public NPUAllocator {
       AT_ERROR("invalid device pointer: ", ptr.get());
     }
 
-    if (block->stream != deviceAPI.getCurrentStream(block->device)) {
+    if (block->stream != getCurrentStream(block->device)) {
       // If the Stream applying for tensor block different from
       // the stream of submiting event wait task in HCCL synchronize()
       // method, the recordSteam can not be erased.
@@ -2167,10 +2164,10 @@ class NpuCachingAllocator : public NPUAllocator {
     if (force_uncached_allocator()) {
       deleteFunc = &uncached_delete;
       size_t alloc_size = size + 32;
-      NPU_CHECK_ERROR(deviceAPI.memAlloc(&devPtr, alloc_size));
+      NPU_CHECK_ERROR(memAlloc(&devPtr, alloc_size));
     } else {
       if (size != 0) {
-        this->malloc(&devPtr, device, size, deviceAPI.getCurrentStream(device));
+        this->malloc(&devPtr, device, size, getCurrentStream(device));
       }
     }
     return {
@@ -2223,7 +2220,7 @@ class NpuCachingAllocator : public NPUAllocator {
     int device = 0;
     NPU_CHECK_ERROR(c10_npu::GetDevice(&device));
     void* r = nullptr;
-    malloc(&r, device, nbytes, deviceAPI.getCurrentStream(device));
+    malloc(&r, device, nbytes, getCurrentStream(device));
     return r;
   }
 
@@ -2310,7 +2307,6 @@ struct BackendStaticInitializer {
   }
 };
 
-DeviceAPI deviceAPI;
 std::atomic<NPUAllocator*> allocator;
 BackendStaticInitializer backend_static_initializer;
 

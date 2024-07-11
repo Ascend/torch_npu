@@ -180,20 +180,6 @@ using OutOfMemoryObserver = std::function<void(
     int64_t device_total,
     int64_t device_free)>;
 
-struct SegmentRange {
-  char* ptr;
-  size_t size;
-  SegmentRange(void* p, size_t s) : ptr(static_cast<char*>(p)), size(s) {}
-};
-
-class ExpandableSegment {
- public:
-  virtual SegmentRange map(SegmentRange range) = 0;
-  virtual SegmentRange unmap(SegmentRange range) = 0;
-  virtual size_t size() const = 0;
-  virtual char* ptr() const = 0;
-};
-
 class NPUAllocator : public c10::Allocator {
  public:
   virtual void* raw_alloc(size_t nbytes) = 0;
@@ -238,31 +224,6 @@ class NPUAllocator : public c10::Allocator {
 // is no different than loading a pointer.
 C10_NPU_API extern std::atomic<NPUAllocator*> allocator;
 
-struct DeviceAPI {
-  // Returns the current stream for the given device
-  std::function<void*(c10::DeviceIndex)> getCurrentStream;
-  // ExpandableSegment factory
-  std::function<ExpandableSegment*(int device, void* stream, size_t size)>
-      createExpandableSegment;
-  // e.g. cudaFree
-  std::function<int(void* devPtr)> memFree;
-  // e.g. cudaMalloc
-  std::function<int(void** devPtr, size_t size)> memAlloc;
-  // e.g. cudaMemGetInfo
-  std::function<int(size_t* free, size_t* total)> memGetInfo;
-  // e.g. cuMemAddressFree
-  std::function<int(void* ptr, size_t size)> memAddressFree;
-  // e.g. cuMemAddressReserve
-  std::function<int(
-      void** virPtr,
-      size_t size,
-      size_t alignment,
-      void* expectPtr,
-      uint64_t flags)>
-      memAddressReserve;
-};
-C10_NPU_API extern DeviceAPI deviceAPI;
-
 inline NPUAllocator* get() {
   return allocator.load();
 }
@@ -280,8 +241,7 @@ inline void raw_delete(void* ptr) {
   return get()->raw_delete(ptr);
 }
 
-inline void init(int device_count, DeviceAPI& deviceAPI_) {
-  deviceAPI = deviceAPI_;
+inline void init(int device_count) {
   return get()->init(device_count);
 }
 

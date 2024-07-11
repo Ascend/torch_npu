@@ -7,12 +7,11 @@
 #include <torch/csrc/utils/python_strings.h>
 #endif
 
-#include "npu/acl/include/acl/acl_op_compiler.h"
-#include "npu/acl/include/acl/acl_rt.h"
 #include "csrc/npu/NPUCachingAllocator.h"
-#include "csrc/npu/NPUExpandableSegment.h"
 #include "csrc/npu/NPUFunctions.h"
 #include "csrc/npu/NPUStream.h"
+#include "npu/acl/include/acl/acl_op_compiler.h"
+#include "npu/acl/include/acl/acl_rt.h"
 #include "npu/core/NpuVariables.h"
 #include "npu/core/interface/AclInterface.h"
 #include "npu/core/npu_log.h"
@@ -194,43 +193,8 @@ NpuSysCtrl& NpuSysCtrl::GetInstance() {
 }
 
 void initCachingAllocator() {
-  auto memAlloc = [](void** devPtr, size_t size) {
-    return aclrtMalloc(
-        devPtr, size, aclrtMemMallocPolicy::ACL_MEM_MALLOC_HUGE_FIRST);
-  };
-  auto memFree = [](void* devPtr) { return aclrtFree(devPtr); };
-  auto memGetInfo = [](size_t* free, size_t* total) {
-    return aclrtGetMemInfo(ACL_HBM_MEM, free, total);
-  };
-  auto memAddressReserve = [](void** virPtr,
-                              size_t size,
-                              size_t alignment,
-                              void* expectPtr,
-                              uint64_t flags) {
-    return acl::AclrtReserveMemAddress(
-        virPtr, size, alignment, expectPtr, flags);
-  };
-  auto memAddressFree = [](void* ptr, size_t size) {
-    return acl::AclrtReleaseMemAddress(ptr);
-  };
-  auto currentStream = [](c10::DeviceIndex device_index) {
-    return c10_npu::getCurrentNPUStreamNoWait(device_index);
-  };
-  auto createExpandableSegment = [](int device, void* stream, size_t size) {
-    return new c10_npu::NPUCachingAllocator::NPUExpandableSegment(
-        device, stream, size);
-  };
-  NPUCachingAllocator::DeviceAPI deviceAPI{
-      currentStream,
-      createExpandableSegment,
-      memFree,
-      memAlloc,
-      memGetInfo,
-      memAddressFree,
-      memAddressReserve};
-
   const auto num_devices = c10_npu::device_count_ensure_non_zero();
-  c10_npu::NPUCachingAllocator::init(num_devices, deviceAPI);
+  c10_npu::NPUCachingAllocator::init(num_devices);
   ASCEND_LOGD("Npu caching allocator initialize successfully");
 }
 
