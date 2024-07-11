@@ -14,6 +14,14 @@ endif()
 
 project(TORCHNPU CXX C)
 
+# ---[ Options. Note to developers: if you add an option below, make sure you
+# also add it to cmake/Summary.cmake so that the summary prints out the option
+# values.
+include(CMakeDependentOption)
+option(BUILD_TEST "Build C++ test binaries (need gtest)" OFF)
+cmake_dependent_option(INSTALL_TEST "Install test binaries if BUILD_TEST is on"
+        ON "BUILD_TEST" OFF)
+
 set(LINUX TRUE)
 set(CMAKE_INSTALL_MESSAGE NEVER)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -25,13 +33,18 @@ endif()
 set(PLUGIN_NAME torch_npu)
 
 set(RPATH_VALUE $ORIGIN)
-set(CMAKE_SKIP_BUILD_RPATH  FALSE)
+set(CMAKE_SKIP_BUILD_RPATH FALSE)
 set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 set(CMAKE_INSTALL_RPATH "${RPATH_VALUE}/lib/:${RPATH_VALUE}/")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
+
+# ---[ CMake build directories
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # check and set CMAKE_CXX_STANDARD
 string(FIND "${CMAKE_CXX_FLAGS}" "-std=c++" env_cxx_standard)
@@ -44,16 +57,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(TORCHNPU_ROOT "${PROJECT_SOURCE_DIR}/torch_npu/csrc")
+set(TORCHNPU_CSRC_ROOT "${PROJECT_SOURCE_DIR}/torch_npu/csrc")
 set(TORCHNPU_THIRD_PARTY_ROOT "${PROJECT_SOURCE_DIR}/third_party")
 
 set(Torch_DIR ${PYTORCH_INSTALL_DIR}/share/cmake/Torch)
-FIND_PACKAGE(Torch REQUIRED)
-
-set(LINUX TRUE)
-set(CMAKE_INSTALL_MESSAGE NEVER)
-#set(CMAKE_VERBOSE_MAKEFILE ON)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+find_package(Torch REQUIRED)
 
 # Define build type
 IF(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -159,6 +167,7 @@ include_directories(${PROJECT_SOURCE_DIR}/third_party/op-plugin)
 
 # Set installed PyTorch dir
 if(DEFINED PYTORCH_INSTALL_DIR)
+  message(STATUS "PYTORCH_INSTALL_DIR: ${PYTORCH_INSTALL_DIR}")
   include_directories(${PYTORCH_INSTALL_DIR}/include)
   include_directories(${PYTORCH_INSTALL_DIR}/include/torch/csrc/api/include)
   include_directories(${PYTORCH_INSTALL_DIR}/include/torch/csrc/distributed)
@@ -196,13 +205,13 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/op-plugin/op_plugin)
 add_subdirectory(${PROJECT_SOURCE_DIR}/csrc)
 
 # libtorch_npu_python
-add_subdirectory(${TORCHNPU_ROOT}/npu)
-add_subdirectory(${TORCHNPU_ROOT}/core)
+add_subdirectory(${TORCHNPU_CSRC_ROOT}/npu)
+add_subdirectory(${TORCHNPU_CSRC_ROOT}/core)
 
 link_directories(${PYTORCH_INSTALL_DIR}/lib)
 link_directories(${PROJECT_SOURCE_DIR}/npu/acl/libs)
 
-set(NPULIB_SRCS ${NPU_SRCS} ${UTILS_SRCS} ${GENERATED_SRCS} ${TORCHNPU_ROOT}/Module.cpp)
+set(NPULIB_SRCS ${NPU_SRCS} ${UTILS_SRCS} ${GENERATED_SRCS} ${TORCHNPU_CSRC_ROOT}/Module.cpp)
 add_library(torch_npu_python SHARED ${NPULIB_SRCS})
 target_link_libraries(torch_npu_python PUBLIC torch_npu)
 install(TARGETS torch_npu_python LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
@@ -211,8 +220,7 @@ set(CPP_SRCS ${BACKEND_SRCS} ${ATEN_SRCS} ${CORE_SRCS} ${OPS_PLUGIN_SRCS} ${FRAM
 add_library(${PLUGIN_NAME} SHARED ${CPP_SRCS})
 
 target_link_libraries(${PLUGIN_NAME} PUBLIC hccl ascendcl acl_op_compiler ge_runner graph)
-target_link_libraries(${PLUGIN_NAME} PUBLIC ${PYTORCH_INSTALL_DIR}/lib/libtorch_python.so)
-target_link_libraries(${PLUGIN_NAME} PUBLIC torch torch_cpu c10)
+target_link_libraries(${PLUGIN_NAME} PUBLIC torch torch_python torch_cpu c10)
 
 set(ATEN_THREADING "OMP" CACHE STRING "ATen parallel backend")
 message(STATUS "Using ATen parallel backend: ${ATEN_THREADING}")
@@ -229,31 +237,4 @@ endif()
 target_compile_options(${PLUGIN_NAME} PRIVATE "-DC10_BUILD_MAIN_LIB")
 install(TARGETS ${PLUGIN_NAME} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-option(BUILD_TEST "Builds the npu cpp tests" OFF)
-
-if (BUILD_TEST)
-  message(STATUS "Enable BUILD_TEST=" ${BUILD_TEST})
-  enable_testing()
-  find_package(PythonLibs REQUIRED)
-  SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/gtest)
-  add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
-
-  target_link_libraries(${PLUGIN_NAME} PUBLIC ${PYTHON_LIBRARIES})
-  add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/googletest)
-  add_subdirectory(${PROJECT_SOURCE_DIR}/test/cpp/aten)
-
-  list(APPEND TORCH_NPU_TEST_SRCS ${ATEN_TEST_SRCS})
-  message(STATUS "NPU test sources: " ${TORCH_NPU_TEST_SRCS})
-
-  foreach(test_src ${TORCH_NPU_TEST_SRCS})
-    get_filename_component(test_name ${test_src} NAME_WE)
-    add_executable(${test_name} "${test_src}")
-    target_include_directories(${test_name} PRIVATE $<INSTALL_INTERFACE:include>)
-    target_include_directories(${test_name} PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>)
-    target_include_directories(${test_name} PRIVATE ${ATEN_SRCS})
-    target_include_directories(${test_name} PRIVATE ${TORCHNPU_THIRD_PARTY_ROOT}/googletest/googletest/include)
-    target_link_libraries(${test_name} ${PLUGIN_NAME} gtest_main)
-    add_test(NAME ${test_name} COMMAND $<TARGET_FILE:${test_name}>)
-  endforeach()
-
-endif()
+include(cmake/Dependencies.cmake)
