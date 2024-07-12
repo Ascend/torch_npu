@@ -204,6 +204,8 @@ torch_npu/utils/exposed_api.py
 
 torch_npu/_op_plugin_docs.py
 
+torch_npu/bin
+torch_npu/lib
 torch_npu/include
 
 kernel_meta
