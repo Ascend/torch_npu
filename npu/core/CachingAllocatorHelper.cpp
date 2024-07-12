@@ -32,10 +32,7 @@ struct NPUExpandableSegment : public ExpandableSegment {
         "NPUCachingAllocator malloc by Aclr_tReserveMemAddress: size=%zu",
         segment_size_ * max_handles_);
   }
-  // begin must be aligned to segment_size_.
-  // returns the actual range mapped, which may be
-  // greater than requested if size is not aligned to segment_size_.
-  // return size of 0 indicates OOM
+ 
   SegmentRange map(SegmentRange range) override {
     auto begin = segmentLeft(range.ptr);
     auto end = segmentRight(range.ptr + range.size);
@@ -83,9 +80,6 @@ struct NPUExpandableSegment : public ExpandableSegment {
     return rangeFromHandles(begin, end);
   }
 
-  // unmaps all the completely empty segment_size_ segments between
-  // [begin, begin + size), returns the offset where the range begin,
-  // and the actual size unmapped (multiple of segment_size_)
   SegmentRange unmap(SegmentRange range) override {
     auto begin = segmentRight(range.ptr);
     auto end = segmentLeft(range.ptr + range.size);
@@ -183,32 +177,14 @@ ExpandableSegment* createExpandableSegment(
   return new NPUExpandableSegment(device, stream, size);
 }
 
-//
-// event listener
-//
-
-class InsertEventListener : public EventListener {
- public:
-  InsertEventListener(int device) : device(device) {}
-  void before() override {
-    compiler_ctx = aclrtContext();
-    ret_ctx = aclrtGetCurrentContext(&compiler_ctx);
-    NPU_CHECK_ERROR(aclrtSetCurrentContext(c10_npu::GetDeviceContext(device)));
+void insertEventWrapper(int device, std::function<void()> fn) {
+  aclrtContext compiler_ctx = aclrtContext();
+  aclError ret_ctx = aclrtGetCurrentContext(&compiler_ctx);
+  NPU_CHECK_ERROR(aclrtSetCurrentContext(c10_npu::GetDeviceContext(device)));
+  fn();
+  if (ret_ctx == ACL_ERROR_NONE) {
+    NPU_CHECK_ERROR(aclrtSetCurrentContext(compiler_ctx));
   }
-  void after() override {
-    if (ret_ctx == ACL_ERROR_NONE) {
-      NPU_CHECK_ERROR(aclrtSetCurrentContext(compiler_ctx));
-    }
-  }
-
- private:
-  int device;
-  aclrtContext compiler_ctx;
-  aclError ret_ctx;
-};
-
-std::unique_ptr<EventListener> createInsertEventListener(int device) {
-  return std::make_unique<InsertEventListener>(device);
 }
 
 void* getCurrentStream(c10::DeviceIndex device_index) {

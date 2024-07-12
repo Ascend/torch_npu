@@ -1860,24 +1860,22 @@ class DeviceCachingAllocator {
   }
 
   void insert_events(Block* block) {
-    auto listener = createInsertEventListener(block->device);
-    listener->before();
+    insertEventWrapper(block->device, [&]() {
+      stream_set streams(std::move(block->stream_uses));
+      AT_ASSERT(block->stream_uses.empty(), PTA_ERROR(ErrCode::VALUE));
+      for (auto& stream : streams) {
+        NPU_CHECK_ERROR(c10_npu::SetDevice(stream.device_index()));
 
-    stream_set streams(std::move(block->stream_uses));
-    AT_ASSERT(block->stream_uses.empty(), PTA_ERROR(ErrCode::VALUE));
-    for (auto& stream : streams) {
-      NPU_CHECK_ERROR(c10_npu::SetDevice(stream.device_index()));
+        EventPool::Event event = create_event_internal(stream.device_index());
+        event->record(stream);
+        ASCEND_LOGI(
+            "Event: record DeviceAllocator is successfully executed, event=%p",
+            event.get());
 
-      EventPool::Event event = create_event_internal(stream.device_index());
-      event->record(stream);
-      ASCEND_LOGI(
-          "Event: record DeviceAllocator is successfully executed, event=%p",
-          event.get());
-
-      block->event_count++;
-      npu_events[stream].emplace_back(std::move(event), block);
-    }
-    listener->after();
+        block->event_count++;
+        npu_events[stream].emplace_back(std::move(event), block);
+      }
+    });
   }
 
   void process_events(const std::shared_ptr<c10::GatheredContext>& context) {
