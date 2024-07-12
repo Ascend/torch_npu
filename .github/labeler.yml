@@ -1,5 +1,6 @@
 documentation:
   - '**/*.md'
+
 ci/cd:
   - '.github/actions/**/*.yml'
   - '.github/workflows/**/*.yml'
@@ -12,3 +13,6 @@ backend:
 
 frontend:
   - '**/*.py'
+
+'unit test':
+  - 'test/**/*'
